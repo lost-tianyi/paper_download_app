@@ -6,12 +6,13 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Optional
 
-from core.config import APP_NAME, WIZARD_STEPS
 from core.detect import DetectionResult
+from core.i18n import set_language, t, wizard_steps
 from core.install_skills import InstallOptions
 from gui.pages import (
     DetectPage,
     FinishPage,
+    LanguagePage,
     OptionsPage,
     ProgressPage,
     TestsPage,
@@ -24,9 +25,11 @@ from gui.widgets import COLORS, StepSidebar, configure_styles
 class InstallerApp:
     def __init__(self) -> None:
         self.root = tk.Tk()
-        self.root.title(APP_NAME)
-        self.root.geometry("960x640")
-        self.root.minsize(900, 600)
+        self.lang = "zh"
+        set_language(self.lang)
+        self.root.title(t("app_title"))
+        self.root.geometry("980x700")
+        self.root.minsize(920, 640)
         self.root.configure(bg=COLORS["bg"])
         self._set_window_icon()
 
@@ -44,7 +47,7 @@ class InstallerApp:
         shell = ttk.Frame(self.root, style="Root.TFrame")
         shell.pack(fill="both", expand=True)
 
-        self.sidebar = StepSidebar(shell, WIZARD_STEPS, width=220)
+        self.sidebar = StepSidebar(shell, wizard_steps(), width=220)
         self.sidebar.pack(side="left", fill="y")
         self.sidebar.pack_propagate(False)
         self.sidebar.configure(width=230)
@@ -59,27 +62,56 @@ class InstallerApp:
         nav.pack(fill="x", pady=(12, 0))
 
         self.back_btn = ttk.Button(
-            nav, text="上一步", style="Nav.TButton", command=self.go_back
+            nav, text=t("back"), style="Nav.TButton", command=self.go_back
         )
         self.back_btn.pack(side="left")
 
         self.next_btn = ttk.Button(
-            nav, text="下一步", style="Accent.TButton", command=self.go_next
+            nav, text=t("next"), style="Accent.TButton", command=self.go_next
         )
         self.next_btn.pack(side="right")
 
+        self._page_classes: list[type[BasePage]] = [
+            LanguagePage,
+            WelcomePage,
+            DetectPage,
+            OptionsPage,
+            ProgressPage,
+            TestsPage,
+            FinishPage,
+        ]
         self.pages: list[BasePage] = [
-            WelcomePage(self.page_host, self),
-            DetectPage(self.page_host, self),
-            OptionsPage(self.page_host, self),
-            ProgressPage(self.page_host, self),
-            TestsPage(self.page_host, self),
-            FinishPage(self.page_host, self),
+            cls(self.page_host, self) for cls in self._page_classes
         ]
         for page in self.pages:
             page.place(in_=self.page_host, x=0, y=0, relwidth=1, relheight=1)
 
         self.show_page(0)
+
+    def apply_language(self, rebuild_pages: bool = False) -> None:
+        set_language(self.lang)
+        self.root.title(t("app_title"))
+        self.sidebar.set_steps(wizard_steps())
+        self.back_btn.configure(text=t("back"))
+        if rebuild_pages:
+            # Keep language page; rebuild the rest so labels match the chosen language.
+            state = {
+                "detection": self.detection,
+                "options": self.options,
+                "selected_assistants": self.selected_assistants,
+                "manual_zotero_path": self.manual_zotero_path,
+                "install_ok": self.install_ok,
+                "tests_ok": self.tests_ok,
+            }
+            for i in range(1, len(self.pages)):
+                self._reset_page(i)
+            self.detection = state["detection"]
+            self.options = state["options"]
+            self.selected_assistants = state["selected_assistants"]
+            self.manual_zotero_path = state["manual_zotero_path"]
+            self.install_ok = state["install_ok"]
+            self.tests_ok = state["tests_ok"]
+        self.update_nav_state()
 
     def _set_window_icon(self) -> None:
         try:
@@ -109,7 +141,6 @@ class InstallerApp:
             if i == index:
                 page.lift()
                 page.on_show()
-            # keep others packed via place
         self.sidebar.set_active(index)
         page = self.pages[index]
         self.next_btn.configure(text=page.next_label())
@@ -121,21 +152,20 @@ class InstallerApp:
         next_state = (
             "normal" if page.can_continue() and not self.busy else "disabled"
         )
-        # Finish page always allows close when shown
         if isinstance(page, FinishPage):
             next_state = "normal"
-        # Welcome always allows next
+        if isinstance(page, LanguagePage):
+            next_state = "normal" if not self.busy else "disabled"
         if isinstance(page, WelcomePage):
             next_state = "normal" if not self.busy else "disabled"
-        self.back_btn.configure(state=back_state)
-        self.next_btn.configure(state=next_state)
-        self.next_btn.configure(text=page.next_label())
+        self.back_btn.configure(state=back_state, text=t("back"))
+        self.next_btn.configure(state=next_state, text=page.next_label())
 
     def go_back(self) -> None:
         if self.busy or self.index <= 0:
             return
-        # Allow retrying install/tests by recreating those pages when going back
-        if self.index in (3, 4):
+        # Progress / tests pages (indices shifted by language page)
+        if self.index in (4, 5):
             self._reset_page(self.index)
         self.show_page(self.index - 1)
 
@@ -147,14 +177,13 @@ class InstallerApp:
             return
         if self.index >= len(self.pages) - 1:
             return
-        # Reset progress/tests pages when entering them fresh after options
         nxt = self.index + 1
-        if nxt in (3, 4):
+        if nxt in (4, 5):
             self._reset_page(nxt)
         self.show_page(nxt)
 
     def _reset_page(self, index: int) -> None:
-        cls = type(self.pages[index])
+        cls = self._page_classes[index]
         old = self.pages[index]
         old.destroy()
         new_page = cls(self.page_host, self)

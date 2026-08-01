@@ -66,14 +66,21 @@ if [[ -f "${REQ}" ]]; then
     echo "[WARN] wheel download incomplete; installer will skip offline pip if missing"
 fi
 
+# Keep workflow guide skill (maintained in-repo under bundled/skills/).
+if [[ ! -f "${BUNDLE}/skills/literature-review-workflow/SKILL.md" ]]; then
+  echo "[WARN] literature-review-workflow skill missing under bundled/skills/"
+fi
+
 cat > "${BUNDLE}/MANIFEST.txt" <<EOF
 Offline skill bundle for Literature Review Installer
 - academic-search
 - sciencedirect-live-session-fetcher (codex-skill package)
+- literature-review-workflow (workflow guide + prompt templates)
 Generated: $(date -u +%Y-%m-%dT%H:%M:%SZ)
 EOF
 
 test -f "${BUNDLE}/skills/academic-search/SKILL.md"
 test -f "${BUNDLE}/skills/sciencedirect-live-session-fetcher/SKILL.md"
+test -f "${BUNDLE}/skills/literature-review-workflow/SKILL.md"
 echo "[OK] Bundled skills ready at ${BUNDLE}"
 du -sh "${BUNDLE}" "${BUNDLE}/skills"/* "${BUNDLE}/wheels" 2>/dev/null || true

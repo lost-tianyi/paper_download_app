@@ -7,3 +7,4 @@ build/pyi-build/
 *.py[cod]
 *.spec.bak
 demo_search/
+demo_closed_loop/

@@ -1,4 +1,5 @@
 Offline skill bundle for Literature Review Installer
 - academic-search
 - sciencedirect-live-session-fetcher (codex-skill package)
-Generated: 2026-08-01T03:04:57Z
+- literature-review-workflow (workflow guide + prompt templates)
+Generated: 2026-08-01T08:12:12Z

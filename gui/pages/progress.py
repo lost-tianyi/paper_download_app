@@ -9,8 +9,8 @@ from gui.widgets import LogView
 
 
 class ProgressPage(BasePage):
-    title = "安装进度"
-    subtitle = "正在从安装包内置素材复制 Skills（离线，无需联网）"
+    title_key = "progress_title"
+    subtitle_key = "progress_subtitle"
 
     def build(self) -> None:
         self.status = ttk.Label(

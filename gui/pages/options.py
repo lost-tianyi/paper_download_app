@@ -10,8 +10,8 @@ from gui.pages.base import BasePage
 
 
 class OptionsPage(BasePage):
-    title = "安装选项"
-    subtitle = "确认将写入的目录与可选行为"
+    title_key = "options_title"
+    subtitle_key = "options_subtitle"
 
     def build(self) -> None:
         self.dirs_frame = ttk.Frame(self.body, style="Panel.TFrame")

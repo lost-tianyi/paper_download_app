@@ -10,8 +10,8 @@ from gui.widgets import LogView
 
 
 class TestsPage(BasePage):
-    title = "标准化测试"
-    subtitle = "验证 Skills 布局、CLI 与脚本可用性"
+    title_key = "tests_title"
+    subtitle_key = "tests_subtitle"
 
     def build(self) -> None:
         self.status = ttk.Label(

@@ -17,8 +17,8 @@ from gui.widgets import COLORS, open_url, status_label
 
 
 class DetectPage(BasePage):
-    title = "环境检测"
-    subtitle = "勾选你要使用的 AI 编程助手；后续安装与测试只针对勾选项"
+    title_key = "detect_title"
+    subtitle_key = "detect_subtitle"
 
     def build(self) -> None:
         self.status_frame = ttk.Frame(self.body, style="Panel.TFrame")

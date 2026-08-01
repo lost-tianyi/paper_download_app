@@ -29,6 +29,7 @@ hiddenimports = [
     "gui.widgets",
     "gui.pages",
     "gui.pages.base",
+    "gui.pages.language",
     "gui.pages.welcome",
     "gui.pages.detect",
     "gui.pages.options",
@@ -41,6 +42,7 @@ hiddenimports = [
     "core.install_skills",
     "core.test_suite",
     "core.prompts",
+    "core.i18n",
 ]
 
 ICON_ICNS = ROOT / "assets" / "app-icon.icns"
@@ -105,7 +107,7 @@ if sys.platform == "darwin":
         info_plist={
             "CFBundleName": "Literature Review Installer",
             "CFBundleDisplayName": "Literature Review Installer",
-            "CFBundleShortVersionString": "1.1.0",
+            "CFBundleShortVersionString": "1.2.0",
             "NSHighResolutionCapable": True,
         },
     )

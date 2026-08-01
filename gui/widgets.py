@@ -56,6 +56,7 @@ class StepSidebar(ttk.Frame):
         self.steps = list(steps)
         self._labels: list[tk.Label] = []
         self._dots: list[tk.Label] = []
+        self._active = 0
         self.configure(style="Sidebar.TFrame")
 
         brand = tk.Frame(self, bg=COLORS["sidebar"])
@@ -84,17 +85,42 @@ class StepSidebar(ttk.Frame):
             anchor="w",
         ).pack(fill="x")
 
-        tk.Label(
+        from core.i18n import t
+
+        self._section = tk.Label(
             self,
-            text="安装步骤",
+            text=t("sidebar_steps"),
             bg=COLORS["sidebar"],
             fg=COLORS["muted"],
             font=ui_font(10),
             anchor="w",
-        ).pack(fill="x", padx=20, pady=(8, 4))
+        )
+        self._section.pack(fill="x", padx=20, pady=(8, 4))
 
+        self._steps_host = tk.Frame(self, bg=COLORS["sidebar"])
+        self._steps_host.pack(fill="x")
+        self._rebuild_steps()
+
+        self._footer = tk.Label(
+            self,
+            text=t("sidebar_footer"),
+            bg=COLORS["sidebar"],
+            fg=COLORS["muted"],
+            font=ui_font(10),
+            justify="left",
+            anchor="sw",
+            padx=20,
+            pady=18,
+        )
+        self._footer.pack(side="bottom", fill="x")
+
+    def _rebuild_steps(self) -> None:
+        for child in self._steps_host.winfo_children():
+            child.destroy()
+        self._labels.clear()
+        self._dots.clear()
         for idx, name in enumerate(self.steps, start=1):
-            row = tk.Frame(self, bg=COLORS["sidebar"])
+            row = tk.Frame(self._steps_host, bg=COLORS["sidebar"])
             row.pack(fill="x", padx=16, pady=3)
             dot = tk.Label(
                 row,
@@ -116,19 +142,15 @@ class StepSidebar(ttk.Frame):
             lbl.pack(side="left", fill="x")
             self._labels.append(lbl)
             self._dots.append(dot)
+        self.set_active(self._active)
 
-        footer = tk.Label(
-            self,
-            text="AI 文献综述工作流\n离线 Skills 安装向导",
-            bg=COLORS["sidebar"],
-            fg=COLORS["muted"],
-            font=ui_font(10),
-            justify="left",
-            anchor="sw",
-            padx=20,
-            pady=18,
-        )
-        footer.pack(side="bottom", fill="x")
+    def set_steps(self, steps: Iterable[str]) -> None:
+        self.steps = list(steps)
+        from core.i18n import t
+
+        self._section.configure(text=t("sidebar_steps"))
+        self._footer.configure(text=t("sidebar_footer"))
+        self._rebuild_steps()
 
     def _load_logo(self) -> None:
         try:
@@ -154,6 +176,7 @@ class StepSidebar(ttk.Frame):
             self.logo_label.configure(text="LR", fg=COLORS["sidebar_done"], font=ui_font(14, "bold"))
 
     def set_active(self, index: int) -> None:
+        self._active = index
         for i, (lbl, dot) in enumerate(zip(self._labels, self._dots)):
             if i == index:
                 lbl.configure(fg=COLORS["sidebar_active"], font=ui_font(12, "bold"))

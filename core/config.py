@@ -8,7 +8,7 @@ import sys
 
 
 APP_NAME = "Literature Review Installer"
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.2.0"
 
 
 def project_root() -> Path:
@@ -77,6 +77,11 @@ SKILLS: tuple[SkillSpec, ...] = (
         url="https://github.com/Given-Dream/sciencedirect-live-session-fetcher.git",
         description="通过已授权浏览器会话合法串行下载 PDF",
     ),
+    SkillSpec(
+        name="literature-review-workflow",
+        url="",
+        description="AI 文献综述工作流说明与标准提示词（供助手参考）",
+    ),
 )
 
 DOWNLOAD_URLS = {
@@ -88,7 +93,9 @@ DOWNLOAD_URLS = {
     "download_skill": "https://github.com/Given-Dream/sciencedirect-live-session-fetcher",
 }
 
+# Legacy default; runtime UI uses core.i18n.wizard_steps().
 WIZARD_STEPS = (
+    "语言",
     "欢迎",
     "环境检测",
     "安装选项",
