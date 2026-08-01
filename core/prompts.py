@@ -44,6 +44,21 @@ ZH_WRAPPER = """请按以下提示词开展文献检索与整理。
 {prompt}
 """
 
+# Short starter message shown on the installer finish page (skill trigger).
+WORKFLOW_STARTER_ZH = """$literature-review-workflow
+请开始文献综述工作流。
+我的研究主题是：{topic}
+
+请在对话里一步一步引导我完成检索、确认和下载整理。
+不要让我自己去查找或打开任何说明文件；直接告诉我下一步该做什么。"""
+
+WORKFLOW_STARTER_EN = """$literature-review-workflow
+Please start the literature-review workflow.
+My research topic is: {topic}
+
+Guide me step by step in this chat through search, review, and download.
+Do not ask me to find or open any documentation files; just tell me what to do next."""
+
 
 @dataclass(frozen=True)
 class TopicPromptParts:
@@ -132,7 +147,7 @@ def build_topic_parts(topic: str) -> TopicPromptParts:
 
 
 def build_recommended_search_prompt(topic: str, lang: str | None = None) -> str:
-    """Fill the workflow search template via keyword/placeholder replacement."""
+    """Fill the detailed academic-search template (kept for advanced use)."""
     lang = lang or get_language()
     parts = build_topic_parts(topic)
     prompt = SEARCH_PROMPT_TEMPLATE.format(
@@ -150,3 +165,14 @@ def build_recommended_search_prompt(topic: str, lang: str | None = None) -> str:
     if lang == "zh":
         return ZH_WRAPPER.format(topic=parts.topic, prompt=prompt)
     return prompt
+
+
+def build_workflow_starter_prompt(topic: str, lang: str | None = None) -> str:
+    """Short message users paste into Codex/Cursor to start the workflow skill."""
+    lang = lang or get_language()
+    topic = (topic or "").strip() or (
+        "（请在这里填写你的研究主题）" if lang != "en" else "(fill in your research topic here)"
+    )
+    if lang == "zh":
+        return WORKFLOW_STARTER_ZH.format(topic=topic)
+    return WORKFLOW_STARTER_EN.format(topic=topic)

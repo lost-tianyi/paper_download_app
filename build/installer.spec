@@ -107,7 +107,7 @@ if sys.platform == "darwin":
         info_plist={
             "CFBundleName": "Literature Review Installer",
             "CFBundleDisplayName": "Literature Review Installer",
-            "CFBundleShortVersionString": "1.2.1",
+            "CFBundleShortVersionString": "1.2.2",
             "NSHighResolutionCapable": True,
         },
     )

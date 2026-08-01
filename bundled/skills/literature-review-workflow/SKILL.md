@@ -1,55 +1,38 @@
 ---
 name: literature-review-workflow
 description: |
-  AI-based literature review workflow guide (search → verify → Excel review → approve → lawful PDF download → Zotero).
-  Use when the user asks how to run a literature review with academic-search and sciencedirect-live-session-fetcher,
-  needs standardised search/download prompts, screening categories (Core / Background / Pending Verification),
-  or the AI_Based_Literature_Review_Workflow process.
+  Guide users through an AI literature-review workflow in chat: search → human review → approve →
+  lawful PDF download → Zotero. Use when the user wants to start a literature review, mentions
+  literature-review-workflow, academic-search, or asks how to search/download papers with the installed skills.
+  Prefer interactive step-by-step guidance; do not ask users to open documentation files themselves.
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
-# AI-Based Literature Review Workflow
+# Literature Review Workflow (Interactive Guide)
 
-A practical step-by-step template for searching, checking, downloading, and organising academic literature.
+## How you should guide the user
 
-Companion skills:
+The user may not be technical. **Do not** ask them to open, find, or read any documentation files.
+Run the workflow **in this conversation**, one clear step at a time, and wait for their confirmation before moving on.
 
-1. `academic-search` — verified literature search and structured Excel export
-2. `sciencedirect-live-session-fetcher` — lawful serial PDF download through a live browser session
+Recommended flow:
 
-## Overview
+1. Confirm their research topic (and years / scope if needed).
+2. Run `$academic-search` with a filled search prompt; export a spreadsheet.
+3. Ask them to review the spreadsheet and mark `Approved = Yes/No` (explain in plain language).
+4. For downloads that need institutional login: ask them to sign in via their own browser first; never ask for passwords.
+5. Run `$sciencedirect-live-session-fetcher` only on `Approved = Yes` rows.
+6. Help organise results into Zotero and do a short final check.
 
-Keep the process simple:
+At each stage, tell them **what just happened**, **what to do next**, and **what you will do after they reply**.
 
-1. Install an AI coding assistant (Codex / Claude Code / Cursor)
-2. Install the literature-search and download skills
-3. Run a verified literature search
-4. Review the Excel output and mark `Approved = Yes/No`
-5. Download approved papers you can lawfully access
-6. Organise into Zotero and reconcile
+## Companion capabilities
 
-Replace bracketed placeholders with your own review requirements.
+1. `$academic-search` — search, verify, and export a literature spreadsheet
+2. `$sciencedirect-live-session-fetcher` — download PDFs the user can lawfully access, via a live browser session
 
-## Step 1 — Install Codex, Claude Code, or Cursor
-
-- Install and sign in to your preferred coding assistant
-- Open or create a project folder for literature-review files
-- Confirm the assistant can create, read, and edit files in this folder
-
-## Step 2 — Add skills
-
-Install:
-
-- Literature search: `academic-search`
-- Automatic literature downloading: `sciencedirect-live-session-fetcher`
-- This workflow guide: `literature-review-workflow`
-
-## Step 3 — Run the literature search
-
-Invoke `$academic-search` with a structured prompt covering topic, scope, keywords, inclusion rules, verification rules, and output fields.
-
-### Standard search prompt
+## Standard search prompt
 
 ```text
 $academic-search
@@ -64,30 +47,24 @@ Output fields: <Reference, Topic, Journal, Scenario, Model/Method, Data, Objecti
 Separate results into Core Literature, Background Literature, and Pending Verification, and report search strings, search date, sources, and verification statistics.
 ```
 
-### Output groups
+### Result groups (explain in plain language)
 
-| Group | Meaning |
-|-------|---------|
-| Core Literature | Directly addresses the research question and is sufficiently verified for the main evidence table |
-| Background Literature | Provides theory, definitions, models, methods, or context but does not answer the main question |
-| Pending Verification | Appears relevant, but details still need checking |
+| Group | Meaning for the user |
+|-------|----------------------|
+| Core Literature | Closely answers the research question; keep for the main table |
+| Background Literature | Useful context, but not the main evidence |
+| Pending Verification | Looks relevant, but still needs checking |
 
-## Step 4 — Review and adjust the Excel output
+## Human review checkpoint
 
-Human quality-control gate:
+Before downloading:
 
-- Open the DOI / official URL and confirm title, authors, year, journal, version
-- Check topic match and inclusion criteria
-- Resolve preprint / conference / journal duplicates; keep the preferred final version
-- Adjust category / subsection when needed
-- Mark unknowns as `Not verified` rather than guessing
-- Add `Approved = Yes/No` before download
+- Confirm titles, authors, year, journal via the official page / DOI
+- Keep the preferred final version when preprint and journal versions both exist
+- Ask the user to mark keep / discard as `Approved = Yes/No` in the spreadsheet
+- Mark unknowns as `Not verified` instead of guessing
 
-## Step 5 — Download approved PDFs and organise in Zotero
-
-Attach the reviewed Excel, invoke `$sciencedirect-live-session-fetcher`, and process only `Approved = Yes`.
-
-### Standard download prompt
+## Standard download prompt
 
 ```text
 $sciencedirect-live-session-fetcher
@@ -96,20 +73,14 @@ Download PDFs that I can lawfully access, organise them by the category or subse
 Do not bypass paywalls or access controls. Record any unavailable, failed, or unmatched items instead of substituting another paper.
 ```
 
-**Access note:** When using a university or organisational subscription, sign in through the browser yourself, then tell the assistant you are signed in. Do **not** provide your password to the assistant.
+**Access note:** If institutional access is required, the user must sign in through the browser themselves, then tell you they are signed in. Never ask for passwords.
 
-## Step 6 — Final quality check
+## Final check
 
-Before detailed reading or synthesis:
+- Every approved row has a PDF or a clear unavailable note
+- Zotero metadata matches the spreadsheet
+- Duplicates removed; folders match the review categories
 
-- Every approved Excel record has either a matching PDF or a clear unavailable/failed note
-- Zotero titles, authors, years, journals, and DOIs match the verified spreadsheet
-- Duplicates are merged or removed
-- Collections / folders follow the same category structure
-- Excel and Zotero library are backed up
-
-## Workflow complete
+## Workflow
 
 `Search → Verify → Review → Approve → Download → Organise`
-
-Source document: `AI_Based_Literature_Review_Workflow_Refined-20260730.docx`

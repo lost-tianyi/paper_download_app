@@ -3,12 +3,8 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk
 
-from core.config import project_root
 from core.i18n import t
-from core.prompts import (
-    build_recommended_search_prompt,
-    load_example_prompts,
-)
+from core.prompts import build_workflow_starter_prompt
 from gui.pages.base import BasePage
 from gui.widgets import COLORS, copy_to_clipboard, status_label, ui_font
 
@@ -21,32 +17,25 @@ class FinishPage(BasePage):
         self.status_host = ttk.Frame(self.body, style="Panel.TFrame")
         self.status_host.pack(fill="x")
 
-        self.next_steps_label = ttk.Label(
-            self.body, text=t("finish_next_steps"), style="Body.TLabel"
+        self.how_title = ttk.Label(
+            self.body, text=t("finish_how_title"), style="Body.TLabel"
         )
-        self.next_steps_label.pack(anchor="w", pady=(16, 6))
-        self._step_keys = (
-            "finish_step_1",
-            "finish_step_2",
-            "finish_step_3",
-            "finish_step_4",
-            "finish_step_5",
-        )
+        self.how_title.pack(anchor="w", pady=(16, 6))
+
+        self._step_keys = ("finish_step_1", "finish_step_2", "finish_step_3")
         self.step_labels: list[ttk.Label] = []
         for _key in self._step_keys:
             lbl = ttk.Label(self.body, text="", style="Muted.TLabel")
-            lbl.pack(anchor="w", pady=1)
+            lbl.pack(anchor="w", pady=2)
             self.step_labels.append(lbl)
 
-        # Topic → recommended prompt
         topic_box = tk.Frame(
             self.body,
             bg=COLORS["accent_soft"],
             highlightbackground=COLORS["border"],
             highlightthickness=1,
         )
-        topic_box.pack(fill="both", expand=True, pady=(16, 0))
-        self.topic_box = topic_box
+        topic_box.pack(fill="both", expand=True, pady=(18, 0))
 
         self.topic_title = tk.Label(
             topic_box,
@@ -88,31 +77,17 @@ class FinishPage(BasePage):
         self.generate_btn = ttk.Button(
             btn_row,
             text=t("finish_generate"),
-            style="Accent.TButton",
+            style="Nav.TButton",
             command=self._generate,
         )
         self.generate_btn.pack(side="left")
-        self.copy_recommended_btn = ttk.Button(
+        self.copy_btn = ttk.Button(
             btn_row,
             text=t("finish_copy_recommended"),
-            style="Nav.TButton",
-            command=self._copy_recommended,
+            style="Accent.TButton",
+            command=self._copy_starter,
         )
-        self.copy_recommended_btn.pack(side="left", padx=(8, 0))
-        self.copy_search_btn = ttk.Button(
-            btn_row,
-            text=t("finish_copy_search"),
-            style="Nav.TButton",
-            command=self._copy_search_prompt,
-        )
-        self.copy_search_btn.pack(side="left", padx=(8, 0))
-        self.copy_download_btn = ttk.Button(
-            btn_row,
-            text=t("finish_copy_download"),
-            style="Nav.TButton",
-            command=self._copy_download_prompt,
-        )
-        self.copy_download_btn.pack(side="left", padx=(8, 0))
+        self.copy_btn.pack(side="left", padx=(8, 0))
 
         self.preview_label = tk.Label(
             topic_box,
@@ -126,9 +101,9 @@ class FinishPage(BasePage):
 
         self.preview = tk.Text(
             topic_box,
-            height=8,
+            height=7,
             wrap="word",
-            font=ui_font(10),
+            font=ui_font(11),
             bg="#F8FAFC",
             fg=COLORS["text"],
             relief="flat",
@@ -147,37 +122,23 @@ class FinishPage(BasePage):
         )
         self.copy_feedback.pack(fill="x", padx=14, pady=(0, 10))
 
-        self.template_label = ttk.Label(self.body, text="", style="Muted.TLabel")
         self.note_label = ttk.Label(self.body, text=t("finish_note"), style="Muted.TLabel")
         self.note_label.pack(anchor="w", pady=(12, 0))
 
-        self._recommended = ""
-        self._search_prompt, self._download_prompt = load_example_prompts()
+        self._starter = ""
         self._retranslate_static()
 
     def _retranslate_static(self) -> None:
-        self.next_steps_label.configure(text=t("finish_next_steps"))
+        self.how_title.configure(text=t("finish_how_title"))
         for i, (key, lbl) in enumerate(zip(self._step_keys, self.step_labels), 1):
             lbl.configure(text=f"{i}. {t(key)}")
         self.topic_title.configure(text=t("finish_topic_title"))
         self.topic_hint.configure(text=t("finish_topic_hint"))
         self.topic_label.configure(text=t("finish_topic_label"))
         self.generate_btn.configure(text=t("finish_generate"))
-        self.copy_recommended_btn.configure(text=t("finish_copy_recommended"))
-        self.copy_search_btn.configure(text=t("finish_copy_search"))
-        self.copy_download_btn.configure(text=t("finish_copy_download"))
+        self.copy_btn.configure(text=t("finish_copy_recommended"))
         self.preview_label.configure(text=t("finish_preview"))
         self.note_label.configure(text=t("finish_note"))
-        self.template_label.pack_forget()
-        self.note_label.pack_forget()
-        path_text = t("finish_template_path")
-        if path_text:
-            template = project_root() / "templates" / "search-prompt.md"
-            self.template_label.configure(
-                text=t("finish_template_path", path=str(template))
-            )
-            self.template_label.pack(anchor="w", pady=(12, 0))
-        self.note_label.pack(anchor="w", pady=(12, 0))
 
     def _flash(self, message: str) -> None:
         self.copy_feedback.configure(text=message, fg=COLORS["ok"])
@@ -188,35 +149,25 @@ class FinishPage(BasePage):
         if not topic:
             self.copy_feedback.configure(text=t("finish_need_topic"), fg=COLORS["fail"])
             return
-        self._recommended = build_recommended_search_prompt(topic, lang=self.app.lang)
+        self._starter = build_workflow_starter_prompt(topic, lang=self.app.lang)
         self.preview.configure(state="normal")
         self.preview.delete("1.0", "end")
-        self.preview.insert("1.0", self._recommended)
-        self.preview.configure(state="normal")
+        self.preview.insert("1.0", self._starter)
         self._flash(t("finish_generated"))
 
-    def _copy_recommended(self) -> None:
-        if not self._recommended.strip():
+    def _copy_starter(self) -> None:
+        if not self._starter.strip():
             self._generate()
-        if not self._recommended.strip():
+        if not self._starter.strip():
             return
-        copy_to_clipboard(self.app.root, self._recommended)
+        copy_to_clipboard(self.app.root, self._starter)
         self._flash(t("finish_copied_recommended"))
-
-    def _copy_search_prompt(self) -> None:
-        copy_to_clipboard(self.app.root, self._search_prompt)
-        self._flash(t("finish_copied_search"))
-
-    def _copy_download_prompt(self) -> None:
-        copy_to_clipboard(self.app.root, self._download_prompt)
-        self._flash(t("finish_copied_download"))
 
     def on_show(self) -> None:
         super().on_show()
         self._retranslate_static()
         for child in self.status_host.winfo_children():
             child.destroy()
-        self._search_prompt, self._download_prompt = load_example_prompts()
         installed = bool(self.app.install_ok)
         tested = bool(self.app.tests_ok)
         if installed and tested:
@@ -225,21 +176,11 @@ class FinishPage(BasePage):
             status_label(self.status_host, t("finish_partial"), None).pack(anchor="w")
         else:
             status_label(self.status_host, t("finish_fail"), False).pack(anchor="w")
-            for btn in (
-                self.generate_btn,
-                self.copy_recommended_btn,
-                self.copy_search_btn,
-                self.copy_download_btn,
-            ):
-                btn.configure(state="disabled")
+            self.generate_btn.configure(state="disabled")
+            self.copy_btn.configure(state="disabled")
             return
-        for btn in (
-            self.generate_btn,
-            self.copy_recommended_btn,
-            self.copy_search_btn,
-            self.copy_download_btn,
-        ):
-            btn.configure(state="normal")
+        self.generate_btn.configure(state="normal")
+        self.copy_btn.configure(state="normal")
 
     def next_label(self) -> str:
         return t("close")
