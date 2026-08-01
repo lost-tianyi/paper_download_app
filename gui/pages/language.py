@@ -25,7 +25,7 @@ class LanguagePage(BasePage):
 
         self.brand = tk.Label(
             self.box,
-            text="Literature Review Installer",
+            text=t("app_title"),
             bg=COLORS["accent_soft"],
             fg=COLORS["text"],
             font=ui_font(16, "bold"),
@@ -67,6 +67,7 @@ class LanguagePage(BasePage):
 
     def _retranslate(self) -> None:
         self.refresh_header()
+        self.brand.configure(text=t("app_title"))
         self.sub.configure(text=t("lang_subtitle"))
         self.rb_zh.configure(text=t("lang_zh"))
         self.rb_en.configure(text=t("lang_en"))

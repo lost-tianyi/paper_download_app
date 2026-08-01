@@ -68,22 +68,19 @@ class StepSidebar(ttk.Frame):
 
         titles = tk.Frame(brand, bg=COLORS["sidebar"])
         titles.pack(side="left", fill="x", expand=True)
-        tk.Label(
+        from core.i18n import t as _t
+
+        self._brand_title = tk.Label(
             titles,
-            text="Literature Review",
+            text=_t("app_title"),
             bg=COLORS["sidebar"],
             fg=COLORS["sidebar_active"],
-            font=ui_font(13, "bold"),
+            font=ui_font(12, "bold"),
             anchor="w",
-        ).pack(fill="x")
-        tk.Label(
-            titles,
-            text="Installer",
-            bg=COLORS["sidebar"],
-            fg=COLORS["sidebar_done"],
-            font=ui_font(11),
-            anchor="w",
-        ).pack(fill="x")
+            wraplength=160,
+            justify="left",
+        )
+        self._brand_title.pack(fill="x")
 
         from core.i18n import t
 
@@ -148,6 +145,7 @@ class StepSidebar(ttk.Frame):
         self.steps = list(steps)
         from core.i18n import t
 
+        self._brand_title.configure(text=t("app_title"))
         self._section.configure(text=t("sidebar_steps"))
         self._footer.configure(text=t("sidebar_footer"))
         self._rebuild_steps()

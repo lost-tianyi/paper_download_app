@@ -75,18 +75,23 @@ class DetectionResult:
         return dirs
 
     def missing_messages(self, selected: Sequence[str] | None = None) -> list[str]:
+        from .i18n import get_language, t
+
         msgs: list[str] = []
+        sep = ", " if get_language() == "en" else "、"
         if selected is None:
             if self.assistant_count == 0:
-                msgs.append("需要至少安装 Codex / Claude Code / Cursor 其中之一")
+                msgs.append(t("miss_need_assistant"))
         else:
             if not selected:
-                msgs.append("请至少勾选一个 AI 编程助手")
+                msgs.append(t("miss_pick_assistant"))
             elif not self.selected_found_keys(selected):
-                labels = "、".join(ASSISTANT_LABELS[k] for k in selected if k in ASSISTANT_LABELS)
-                msgs.append(f"勾选的助手尚未安装或未检测到：{labels or '（无）'}")
+                labels = sep.join(
+                    ASSISTANT_LABELS[k] for k in selected if k in ASSISTANT_LABELS
+                )
+                msgs.append(t("miss_assistant_missing", labels=labels or "-"))
         if not self.zotero.found:
-            msgs.append("未检测到 Zotero，请安装或手动指定路径")
+            msgs.append(t("miss_need_zotero"))
         return msgs
 
 

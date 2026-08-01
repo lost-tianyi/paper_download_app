@@ -8,7 +8,7 @@ import sys
 
 
 APP_NAME = "Literature Review Installer"
-APP_VERSION = "1.2.0"
+APP_VERSION = "1.2.1"
 
 
 def project_root() -> Path:
@@ -70,17 +70,17 @@ SKILLS: tuple[SkillSpec, ...] = (
     SkillSpec(
         name="academic-search",
         url="https://github.com/ustc-ai4science/academic-search.git",
-        description="学术文献检索、核验与结构化导出",
+        description="文献检索",
     ),
     SkillSpec(
         name="sciencedirect-live-session-fetcher",
         url="https://github.com/Given-Dream/sciencedirect-live-session-fetcher.git",
-        description="通过已授权浏览器会话合法串行下载 PDF",
+        description="全文下载",
     ),
     SkillSpec(
         name="literature-review-workflow",
         url="",
-        description="AI 文献综述工作流说明与标准提示词（供助手参考）",
+        description="工作流程指南",
     ),
 )
 

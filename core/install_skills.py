@@ -39,16 +39,17 @@ def _log(log: Optional[LogFn], message: str) -> None:
 
 
 def _step(log: Optional[LogFn], current: int, total: int, message: str) -> None:
-    _log(log, f"[步骤 {current}/{total}] {message}")
+    _log(log, f"[{current}/{total}] {message}")
 
 
 def bundled_skill_source(spec: SkillSpec) -> Path:
     """Return the offline skill package directory (already install-ready)."""
+    from .i18n import feature_label
+
     path = bundled_dir() / "skills" / spec.name
     if not (path / "SKILL.md").is_file():
         raise RuntimeError(
-            f"安装包缺少离线技能素材: {path}\n"
-            "请使用完整打包的安装程序，或运行 build/vendor_skills.sh 后重新构建。"
+            f"缺少安装内容：{feature_label(spec.name, spec.name)}。请使用完整安装程序。"
         )
     return path
 
@@ -70,20 +71,18 @@ def install_one_skill(
     if not skill_md.is_file():
         raise RuntimeError(f"技能包缺少 SKILL.md: {source_dir}")
 
-    target = target_root / spec.name
-    if (target / "SKILL.md").is_file():
-        _log(log, f"  · 发现已安装版本，准备覆盖：{target}")
-    else:
-        _log(log, f"  · 写入新目录：{target}")
+    from .i18n import feature_label, t
 
+    target = target_root / spec.name
+    label = feature_label(spec.name, spec.description or spec.name)
     target_root.mkdir(parents=True, exist_ok=True)
     started = time.time()
     _copy_skill_tree(source_dir, target)
     elapsed = time.time() - started
 
     if not (target / "SKILL.md").is_file():
-        raise RuntimeError(f"安装失败，未找到 {target / 'SKILL.md'}")
-    _log(log, f"[OK] {spec.name} 已复制完成（{elapsed:.1f}s）→ {target}")
+        raise RuntimeError(t("install_fail", error=label))
+    _log(log, f"[OK] {t('install_feature_ok', name=label)}（{elapsed:.1f}s）")
     return target
 
 
@@ -187,19 +186,20 @@ def verify_skill_layout(
     log: Optional[LogFn] = None,
     selected: Optional[tuple[str, ...]] = None,
 ) -> bool:
-    _log(log, "  · 正在核对 SKILL.md 是否已就位…")
+    from .i18n import feature_label
+
     ok = True
     targets = detection.target_skill_dirs(selected)
     if not targets:
-        _log(log, "[FAIL] 没有可校验的目标 Skills 目录（请检查助手勾选）")
         return False
     for target in targets:
         for spec in SKILLS:
             path = target / spec.name / "SKILL.md"
+            label = feature_label(spec.name, spec.description or spec.name)
             if path.is_file():
-                _log(log, f"[OK] 校验通过：{path}")
+                _log(log, f"[OK] {label}")
             else:
-                _log(log, f"[FAIL] 缺失：{path}")
+                _log(log, f"[FAIL] {label}")
                 ok = False
     return ok
 
@@ -227,41 +227,36 @@ def install_all_skills(
 
     try:
         from .detect import ASSISTANT_LABELS
+        from .i18n import feature_label, get_language, t
 
         targets = detection.target_skill_dirs(selected)
         if not targets:
-            raise RuntimeError("未找到可用的技能安装目录（请勾选已检测到的助手）")
+            raise RuntimeError(t("options_no_target"))
 
         bundle = bundled_dir()
-        _log(log, "============================================================")
-        _log(log, "文献综述 Skills 安装开始")
-        _log(log, "模式：离线本地复制（不访问 GitHub，不下载技能仓库）")
-        _log(log, f"素材目录：{bundle}")
-        _log(log, "用户勾选：" + "、".join(
-            ASSISTANT_LABELS.get(k, k) for k in selected
-        ))
-        _log(log, "实际安装：" + "、".join(
-            ASSISTANT_LABELS.get(k, k) for k in detection.selected_found_keys(selected)
-        ))
-        for t in targets:
-            _log(log, f"  · Skills 目录：{t}")
-        _log(log, "============================================================")
+        sep = ", " if get_language() == "en" else "、"
+        labels = sep.join(
+            ASSISTANT_LABELS.get(k, k)
+            for k in detection.selected_found_keys(selected)
+        )
+        _log(log, t("install_banner"))
+        _log(log, t("install_mode"))
+        _log(log, t("install_selected", labels=labels))
 
         if not (bundle / "skills").is_dir():
-            raise RuntimeError(f"安装包缺少 bundled/skills: {bundle}")
+            raise RuntimeError(t("install_fail", error="bundle"))
 
         step = 1
-        _step(log, step, total, "准备离线素材")
+        _step(log, step, total, t("install_prepare"))
         for spec in SKILLS:
-            source = bundled_skill_source(spec)
-            _log(log, f"[OK] 已找到内置技能包：{spec.name}")
-            _log(log, f"  · 路径：{source}")
+            bundled_skill_source(spec)
+            _log(log, f"[OK] {feature_label(spec.name, spec.description)}")
         step += 1
 
         first_download: Optional[Path] = None
         for index, spec in enumerate(SKILLS, start=1):
-            _step(log, step, total, f"安装技能 {index}/{skill_count}：{spec.name}")
-            _log(log, f"  · 说明：{spec.description}")
+            label = feature_label(spec.name, spec.description or spec.name)
+            _step(log, step, total, t("install_feature", name=label))
             source = bundled_skill_source(spec)
             for target_root in targets:
                 installed = install_one_skill(spec, source, target_root, log=log)
@@ -271,26 +266,23 @@ def install_all_skills(
             step += 1
 
         if not options.skip_python_deps and first_download is not None:
-            _step(log, step, total, "安装下载技能的可选 Python 依赖（离线）")
+            _step(log, step, total, t("install_deps"))
             install_python_deps(first_download, log=log)
             step += 1
-        else:
-            _log(log, "[步骤] 已跳过 Python 依赖安装")
 
-        _step(log, step, total, "校验安装结果")
+        _step(log, step, total, t("install_verify"))
         if not verify_skill_layout(detection, log=log, selected=selected):
-            raise RuntimeError("Skills 布局校验失败")
+            raise RuntimeError(t("install_fail", error="verify"))
 
         result.ok = True
-        result.messages.append("Skills 安装完成")
-        _log(log, "============================================================")
-        _log(log, "[OK] 全部完成：Skills 已从安装包内置素材安装")
-        _log(log, "下一步：可进入「标准化测试」")
-        _log(log, "============================================================")
+        result.messages.append(t("install_done"))
+        _log(log, "[OK] " + t("install_done"))
         return result
     except Exception as exc:  # noqa: BLE001 - surface to GUI
+        from .i18n import t
+
         result.ok = False
         result.messages.append(str(exc))
-        _log(log, f"[FAIL] {exc}")
-        _log(log, "可返回上一步后重试；Skills 复制失败时请检查磁盘权限")
+        _log(log, f"[FAIL] {t('install_fail', error=str(exc))}")
+        _log(log, t("install_retry"))
         return result

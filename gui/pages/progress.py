@@ -3,6 +3,7 @@ from __future__ import annotations
 import threading
 from tkinter import ttk
 
+from core.i18n import t
 from core.install_skills import install_all_skills
 from gui.pages.base import BasePage
 from gui.widgets import LogView
@@ -15,7 +16,7 @@ class ProgressPage(BasePage):
     def build(self) -> None:
         self.status = ttk.Label(
             self.body,
-            text="准备开始…",
+            text=t("progress_ready"),
             style="Body.TLabel",
         )
         self.status.pack(anchor="w", pady=(0, 8))
@@ -29,6 +30,7 @@ class ProgressPage(BasePage):
         self._started = False
 
     def on_show(self) -> None:
+        self.refresh_header()
         if self._started:
             self.app.update_nav_state()
             return
@@ -36,7 +38,7 @@ class ProgressPage(BasePage):
         self._done = False
         self._ok = False
         self.log.clear()
-        self.status.configure(text="安装进行中，请查看下方日志…")
+        self.status.configure(text=t("progress_running"))
         self.progress.start(12)
         self.app.set_busy(True)
         thread = threading.Thread(target=self._run_install, daemon=True)
@@ -55,9 +57,8 @@ class ProgressPage(BasePage):
 
     def _append_log(self, msg: str) -> None:
         self.log.append(msg)
-        if msg.startswith("[步骤"):
-            # Keep a short live status above the log
-            self.status.configure(text=msg.replace("[步骤 ", "当前：").rstrip("]"))
+        if msg.startswith("[") and ("/" in msg[:12] or msg.startswith("[步骤")):
+            self.status.configure(text=msg)
 
     def _finish(self, ok: bool) -> None:
         self.progress.stop()
@@ -66,11 +67,11 @@ class ProgressPage(BasePage):
         self.app.install_ok = ok
         self.app.set_busy(False)
         if ok:
-            self.status.configure(text="安装完成，可以进入测试")
-            self.log.append("[OK] 安装阶段完成，可点击「运行测试」")
+            self.status.configure(text=t("progress_done"))
+            self.log.append("[OK] " + t("progress_log_ok"))
         else:
-            self.status.configure(text="安装失败，请查看日志后返回重试")
-            self.log.append("[FAIL] 安装失败：请根据上方日志排查后返回重试")
+            self.status.configure(text=t("progress_fail"))
+            self.log.append("[FAIL] " + t("progress_log_fail"))
         self.app.update_nav_state()
 
     def can_continue(self) -> bool:
@@ -80,4 +81,4 @@ class ProgressPage(BasePage):
         return self._done and not self.app.busy
 
     def next_label(self) -> str:
-        return "运行测试"
+        return t("progress_next")

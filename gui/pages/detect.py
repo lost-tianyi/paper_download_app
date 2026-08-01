@@ -12,6 +12,7 @@ from core.detect import (
     detect_environment,
     resolve_zotero_path,
 )
+from core.i18n import t
 from gui.pages.base import BasePage
 from gui.widgets import COLORS, open_url, status_label
 
@@ -24,11 +25,10 @@ class DetectPage(BasePage):
         self.status_frame = ttk.Frame(self.body, style="Panel.TFrame")
         self.status_frame.pack(fill="both", expand=True)
 
-        ttk.Label(
-            self.body,
-            text="选择要安装 Skills 的 AI 编程助手（可多选）：",
-            style="Body.TLabel",
-        ).pack(anchor="w", pady=(12, 4))
+        self.choose_label = ttk.Label(
+            self.body, text=t("detect_choose"), style="Body.TLabel"
+        )
+        self.choose_label.pack(anchor="w", pady=(12, 4))
 
         self.choice_frame = ttk.Frame(self.body, style="Panel.TFrame")
         self.choice_frame.pack(fill="x")
@@ -53,27 +53,35 @@ class DetectPage(BasePage):
 
         btn_row = ttk.Frame(self.body, style="Panel.TFrame")
         btn_row.pack(fill="x", pady=(12, 0))
-        ttk.Button(btn_row, text="重新检测", command=self.refresh, style="Nav.TButton").pack(
-            side="left"
+        self.refresh_btn = ttk.Button(
+            btn_row, text=t("detect_refresh"), command=self.refresh, style="Nav.TButton"
         )
-        ttk.Button(
+        self.refresh_btn.pack(side="left")
+        self.select_all_btn = ttk.Button(
             btn_row,
-            text="全选已检测",
+            text=t("detect_select_all"),
             command=self._select_all_found,
             style="Nav.TButton",
-        ).pack(side="left", padx=(8, 0))
-        ttk.Button(
+        )
+        self.select_all_btn.pack(side="left", padx=(8, 0))
+        self.browse_btn = ttk.Button(
             btn_row,
-            text="浏览选择 Zotero…",
+            text=t("detect_browse_zotero"),
             command=self._browse_zotero,
             style="Accent.TButton",
-        ).pack(side="left", padx=(8, 0))
+        )
+        self.browse_btn.pack(side="left", padx=(8, 0))
 
         self.link_frame = ttk.Frame(self.body, style="Panel.TFrame")
         self.link_frame.pack(fill="x", pady=(16, 0))
         self._ready = False
 
     def on_show(self) -> None:
+        self.refresh_header()
+        self.choose_label.configure(text=t("detect_choose"))
+        self.refresh_btn.configure(text=t("detect_refresh"))
+        self.select_all_btn.configure(text=t("detect_select_all"))
+        self.browse_btn.configure(text=t("detect_browse_zotero"))
         self.refresh()
 
     def refresh(self) -> None:
@@ -86,9 +94,9 @@ class DetectPage(BasePage):
         result = detect_environment(manual_zotero_path=manual)
         self.app.detection = result
 
-        self._add_hit(result.codex, "编码助手")
-        self._add_hit(result.claude, "编码助手")
-        self._add_hit(result.cursor, "编码助手")
+        self._add_hit(result.codex, t("detect_kind_assistant"))
+        self._add_hit(result.claude, t("detect_kind_assistant"))
+        self._add_hit(result.cursor, t("detect_kind_assistant"))
         self._add_zotero_hit(result.zotero, manual=bool(manual and result.zotero.found))
 
         previous = set(getattr(self.app, "selected_assistants", ()) or ())
@@ -100,10 +108,8 @@ class DetectPage(BasePage):
             elif previous:
                 self.assistant_vars[key].set(key in previous)
             else:
-                # First visit: default-select every detected assistant.
                 self.assistant_vars[key].set(True)
 
-        # If previous selection became empty after redetect, fall back to all found.
         if result.found_assistant_keys() and not any(
             self.assistant_vars[k].get() for k in result.found_assistant_keys()
         ):
@@ -116,25 +122,25 @@ class DetectPage(BasePage):
         if result.assistant_count == 0:
             ttk.Label(
                 self.link_frame,
-                text="请至少安装以下任一编码助手：",
+                text=t("detect_need_assistant"),
                 style="Muted.TLabel",
             ).pack(anchor="w")
-            self._link_button("下载 Codex", DOWNLOAD_URLS["codex"])
-            self._link_button("下载 Claude Code", DOWNLOAD_URLS["claude"])
-            self._link_button("下载 Cursor", DOWNLOAD_URLS["cursor"])
+            self._link_button("Codex", DOWNLOAD_URLS["codex"])
+            self._link_button("Claude Code", DOWNLOAD_URLS["claude"])
+            self._link_button("Cursor", DOWNLOAD_URLS["cursor"])
 
         if not result.zotero.found:
             ttk.Label(
                 self.link_frame,
-                text="未找到 Zotero：可下载安装，或点击上方「浏览选择 Zotero…」指定本机路径。",
+                text=t("detect_need_zotero"),
                 style="Muted.TLabel",
             ).pack(anchor="w", pady=(10, 0))
             row = ttk.Frame(self.link_frame, style="Panel.TFrame")
             row.pack(fill="x", pady=(4, 0))
-            self._link_button("下载 Zotero", DOWNLOAD_URLS["zotero"], parent=row)
+            self._link_button(t("detect_download_zotero"), DOWNLOAD_URLS["zotero"], parent=row)
             ttk.Button(
                 row,
-                text="浏览选择 Zotero…",
+                text=t("detect_browse_zotero"),
                 style="Accent.TButton",
                 command=self._browse_zotero,
             ).pack(side="left", padx=(0, 8), pady=4)
@@ -145,7 +151,7 @@ class DetectPage(BasePage):
         if sys.platform == "darwin":
             path = filedialog.askdirectory(
                 parent=self.app.root,
-                title="选择 Zotero.app（通常在「应用程序」文件夹）",
+                title=t("detect_pick_title_mac"),
                 initialdir="/Applications",
                 mustexist=True,
             )
@@ -155,19 +161,19 @@ class DetectPage(BasePage):
             initial = os.environ.get("ProgramFiles", r"C:\Program Files")
             path = filedialog.askopenfilename(
                 parent=self.app.root,
-                title="选择 zotero.exe",
+                title=t("detect_pick_title_win"),
                 initialdir=initial,
                 filetypes=[
                     ("Zotero", "zotero.exe"),
-                    ("可执行文件", "*.exe"),
-                    ("所有文件", "*.*"),
+                    ("EXE", "*.exe"),
+                    ("*", "*.*"),
                 ],
             )
         else:
             path = filedialog.askopenfilename(
                 parent=self.app.root,
-                title="选择 Zotero 可执行文件",
-                filetypes=[("所有文件", "*.*")],
+                title=t("detect_pick_title_win"),
+                filetypes=[("*", "*.*")],
             )
 
         if not path:
@@ -175,7 +181,6 @@ class DetectPage(BasePage):
 
         hit = resolve_zotero_path(path)
         if not hit.found:
-            # On macOS, user might select Applications folder by mistake.
             guess = Path(path)
             if sys.platform == "darwin" and guess.is_dir():
                 candidate = guess / "Zotero.app"
@@ -187,14 +192,10 @@ class DetectPage(BasePage):
                     hit = resolve_zotero_path(candidate)
 
         if not hit.found:
-            tip = (
-                "请选择 Zotero.app（例如 /Applications/Zotero.app）"
-                if sys.platform == "darwin"
-                else "请选择 zotero.exe（例如 C:\\Program Files\\Zotero\\zotero.exe）"
-            )
+            tip = t("detect_tip_mac") if sys.platform == "darwin" else t("detect_tip_win")
             messagebox.showerror(
-                "无法识别为 Zotero",
-                f"所选路径无法确认为 Zotero 安装：\n{path}\n\n{tip}",
+                t("detect_dialog_bad_title"),
+                t("detect_dialog_bad_body", path=path, tip=tip),
                 parent=self.app.root,
             )
             return
@@ -202,8 +203,8 @@ class DetectPage(BasePage):
         self.app.manual_zotero_path = hit.app_path
         self.refresh()
         messagebox.showinfo(
-            "已指定 Zotero",
-            f"已使用手动路径：\n{hit.app_path}",
+            t("detect_dialog_ok_title"),
+            t("detect_dialog_ok_body", path=hit.app_path),
             parent=self.app.root,
         )
 
@@ -235,62 +236,55 @@ class DetectPage(BasePage):
         selected = self._current_selection()
         if detection is None:
             self._ready = False
-            self.hint.configure(text="尚未完成检测")
+            self.hint.configure(text=t("detect_not_ready"))
             return
 
         self._ready = detection.ok_for_selection(selected)
         if self._ready:
-            labels = "、".join(ASSISTANT_LABELS[k] for k in selected)
+            sep = ", " if getattr(self.app, "lang", "zh") == "en" else "、"
+            labels = sep.join(ASSISTANT_LABELS[k] for k in selected)
             self.hint.configure(
-                text=f"已选择：{labels}。下一步将只为这些助手安装并测试 Skills。",
+                text=t("detect_ready", labels=labels),
                 foreground=COLORS["ok"],
             )
         else:
             msgs = detection.missing_messages(selected)
             self.hint.configure(
-                text="；".join(msgs) if msgs else "请勾选至少一个已检测到的助手",
+                text=("; ".join(msgs) if msgs else t("detect_pick_one")),
                 foreground=COLORS["fail"],
             )
 
     def _add_hit(self, hit, kind: str) -> None:
         box = ttk.Frame(self.status_frame, style="Panel.TFrame")
         box.pack(fill="x", pady=4)
-        status_label(
-            box,
-            f"{hit.name}（{kind}）",
-            ok=hit.found,
-        ).pack(anchor="w")
-        detail = []
-        if hit.app_path:
-            detail.append(f"App: {hit.app_path}")
-        if hit.cli_path:
-            detail.append(f"CLI: {hit.cli_path}")
-        if hit.skills_dir and hit.found:
-            detail.append(f"Skills: {hit.skills_dir}")
-        if detail:
+        status_label(box, f"{hit.name}（{kind}）", ok=hit.found).pack(anchor="w")
+        path = hit.app_path or hit.cli_path
+        if hit.found and path:
             ttk.Label(
                 box,
-                text="    " + "  |  ".join(detail),
+                text="    " + t("detect_found_at", path=path),
                 style="Muted.TLabel",
             ).pack(anchor="w")
 
     def _add_zotero_hit(self, hit, manual: bool = False) -> None:
         box = ttk.Frame(self.status_frame, style="Panel.TFrame")
         box.pack(fill="x", pady=4)
-        label = "Zotero（文献管理）"
-        if hit.found and manual:
-            label += " · 手动指定"
+        label = (
+            t("detect_zotero_manual")
+            if hit.found and manual
+            else f"Zotero（{t('detect_kind_library')}）"
+        )
         status_label(box, label, ok=hit.found).pack(anchor="w")
         if hit.app_path:
             ttk.Label(
                 box,
-                text=f"    App: {hit.app_path}",
+                text="    " + t("detect_zotero_found", path=hit.app_path),
                 style="Muted.TLabel",
             ).pack(anchor="w")
         elif not hit.found:
             ttk.Label(
                 box,
-                text="    未找到。若已安装在自定义位置，请点击「浏览选择 Zotero…」",
+                text="    " + t("detect_zotero_missing_hint"),
                 style="Muted.TLabel",
             ).pack(anchor="w")
 
@@ -298,14 +292,14 @@ class DetectPage(BasePage):
         action.pack(anchor="w", pady=(2, 0))
         ttk.Button(
             action,
-            text="浏览选择…",
+            text=t("detect_browse_short"),
             style="Nav.TButton",
             command=self._browse_zotero,
         ).pack(side="left")
         if manual and hit.found:
             ttk.Button(
                 action,
-                text="清除手动路径",
+                text=t("detect_clear_manual"),
                 style="Nav.TButton",
                 command=self._clear_manual_zotero,
             ).pack(side="left", padx=(8, 0))
@@ -326,6 +320,4 @@ class DetectPage(BasePage):
 
     def on_next(self) -> bool:
         self._sync_selection_to_app()
-        if not self._ready:
-            return False
-        return True
+        return bool(self._ready)

@@ -5,6 +5,7 @@ from tkinter import ttk
 
 from core.config import SKILLS
 from core.detect import ASSISTANT_LABELS
+from core.i18n import feature_label, t
 from core.install_skills import InstallOptions
 from gui.pages.base import BasePage
 
@@ -17,15 +18,19 @@ class OptionsPage(BasePage):
         self.dirs_frame = ttk.Frame(self.body, style="Panel.TFrame")
         self.dirs_frame.pack(fill="x")
 
-        ttk.Label(self.body, text="将安装的 Skills：", style="Body.TLabel").pack(
-            anchor="w", pady=(16, 4)
+        self.features_title = ttk.Label(
+            self.body, text=t("options_features"), style="Body.TLabel"
         )
+        self.features_title.pack(anchor="w", pady=(16, 4))
+        self.feature_labels: list[ttk.Label] = []
         for spec in SKILLS:
-            ttk.Label(
+            lbl = ttk.Label(
                 self.body,
-                text=f"• {spec.name} — {spec.description}",
+                text=f"• {feature_label(spec.name, spec.description)}",
                 style="Muted.TLabel",
-            ).pack(anchor="w")
+            )
+            lbl.pack(anchor="w")
+            self.feature_labels.append(lbl)
 
         self.force_var = tk.BooleanVar(value=False)
         self.skip_network_var = tk.BooleanVar(value=False)
@@ -33,64 +38,70 @@ class OptionsPage(BasePage):
 
         opts = ttk.Frame(self.body, style="Panel.TFrame")
         opts.pack(fill="x", pady=(20, 0))
-        ttk.Checkbutton(
-            opts,
-            text="强制覆盖已安装的 Skills（默认也会覆盖同名技能）",
-            variable=self.force_var,
-        ).pack(anchor="w")
-        ttk.Checkbutton(
-            opts,
-            text="跳过 Crossref 网络探测测试",
-            variable=self.skip_network_var,
-        ).pack(anchor="w", pady=(6, 0))
-        ttk.Checkbutton(
-            opts,
-            text="跳过可选 Python 依赖安装（更快；仅下载 PDF 脚本需要）",
-            variable=self.skip_python_deps_var,
-        ).pack(anchor="w", pady=(6, 0))
+        self.force_chk = ttk.Checkbutton(
+            opts, text=t("options_force"), variable=self.force_var
+        )
+        self.force_chk.pack(anchor="w")
+        self.skip_net_chk = ttk.Checkbutton(
+            opts, text=t("options_skip_network"), variable=self.skip_network_var
+        )
+        self.skip_net_chk.pack(anchor="w", pady=(6, 0))
+        self.skip_deps_chk = ttk.Checkbutton(
+            opts, text=t("options_skip_deps"), variable=self.skip_python_deps_var
+        )
+        self.skip_deps_chk.pack(anchor="w", pady=(6, 0))
 
-        ttk.Label(
-            self.body,
-            text="下一步只为上一页勾选的 AI 助手安装 Skills；测试阶段也只验证这些助手。",
-            style="Muted.TLabel",
-        ).pack(anchor="w", pady=(18, 0))
+        self.note = ttk.Label(self.body, text=t("options_note"), style="Muted.TLabel")
+        self.note.pack(anchor="w", pady=(18, 0))
 
     def on_show(self) -> None:
+        self.refresh_header()
+        self.features_title.configure(text=t("options_features"))
+        for spec, lbl in zip(SKILLS, self.feature_labels):
+            lbl.configure(text=f"• {feature_label(spec.name, spec.description)}")
+        self.force_chk.configure(text=t("options_force"))
+        self.skip_net_chk.configure(text=t("options_skip_network"))
+        self.skip_deps_chk.configure(text=t("options_skip_deps"))
+        self.note.configure(text=t("options_note"))
+
         for child in self.dirs_frame.winfo_children():
             child.destroy()
         detection = self.app.detection
         selected = tuple(getattr(self.app, "selected_assistants", ()) or ())
 
-        ttk.Label(self.dirs_frame, text="已勾选的 AI 助手：", style="Body.TLabel").pack(
+        ttk.Label(self.dirs_frame, text=t("options_selected"), style="Body.TLabel").pack(
             anchor="w"
         )
         if selected:
             labels = "、".join(ASSISTANT_LABELS.get(k, k) for k in selected)
+            if getattr(self.app, "lang", "zh") == "en":
+                labels = ", ".join(ASSISTANT_LABELS.get(k, k) for k in selected)
             ttk.Label(self.dirs_frame, text=f"• {labels}", style="Muted.TLabel").pack(
                 anchor="w"
             )
         else:
-            ttk.Label(self.dirs_frame, text="• （尚未勾选）", style="Muted.TLabel").pack(
-                anchor="w"
-            )
+            ttk.Label(
+                self.dirs_frame, text=f"• {t('options_none')}", style="Muted.TLabel"
+            ).pack(anchor="w")
 
         ttk.Label(
-            self.dirs_frame, text="目标 Skills 目录：", style="Body.TLabel"
+            self.dirs_frame, text=t("options_locations"), style="Body.TLabel"
         ).pack(anchor="w", pady=(10, 0))
         if detection is None:
-            ttk.Label(self.dirs_frame, text="（尚未检测）", style="Muted.TLabel").pack(
-                anchor="w"
-            )
+            ttk.Label(
+                self.dirs_frame, text=t("options_not_detected"), style="Muted.TLabel"
+            ).pack(anchor="w")
             return
         targets = detection.target_skill_dirs(selected)
         if not targets:
             ttk.Label(
                 self.dirs_frame,
-                text="（无匹配目录，请返回重新勾选）",
+                text=t("options_no_target"),
                 style="Muted.TLabel",
             ).pack(anchor="w")
             return
         for path in targets:
+            # Show assistant-friendly location, not raw skills jargon
             ttk.Label(self.dirs_frame, text=f"• {path}", style="Muted.TLabel").pack(
                 anchor="w"
             )
@@ -106,4 +117,4 @@ class OptionsPage(BasePage):
         return True
 
     def next_label(self) -> str:
-        return "开始安装"
+        return t("start_install")

@@ -36,9 +36,9 @@ Prefer final journal versions, identify duplicate preprint/conference/journal ve
 Output fields: Reference, Topic, Journal, Scenario, Model/Method, Data, Objective, Metrics, Findings, Limitations, DOI/URL.
 Separate results into Core Literature, Background Literature, and Pending Verification, and report search strings, search date, sources, and verification statistics."""
 
-ZH_WRAPPER = """请按以下英文工作流提示词执行（来自 AI-Based Literature Review Workflow）。
-主题：{topic}
-完成后请导出结构化 Excel，并保留 Core / Background / Pending Verification 分组。
+ZH_WRAPPER = """请按以下提示词开展文献检索与整理。
+研究主题：{topic}
+完成后请导出文献表格，并区分「核心文献 / 背景文献 / 待核实」。
 
 ---
 {prompt}

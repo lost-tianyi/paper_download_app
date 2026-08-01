@@ -148,9 +148,8 @@ class FinishPage(BasePage):
         self.copy_feedback.pack(fill="x", padx=14, pady=(0, 10))
 
         self.template_label = ttk.Label(self.body, text="", style="Muted.TLabel")
-        self.template_label.pack(anchor="w", pady=(12, 0))
         self.note_label = ttk.Label(self.body, text=t("finish_note"), style="Muted.TLabel")
-        self.note_label.pack(anchor="w", pady=(6, 0))
+        self.note_label.pack(anchor="w", pady=(12, 0))
 
         self._recommended = ""
         self._search_prompt, self._download_prompt = load_example_prompts()
@@ -169,8 +168,16 @@ class FinishPage(BasePage):
         self.copy_download_btn.configure(text=t("finish_copy_download"))
         self.preview_label.configure(text=t("finish_preview"))
         self.note_label.configure(text=t("finish_note"))
-        template = project_root() / "templates" / "search-prompt.md"
-        self.template_label.configure(text=t("finish_template_path", path=str(template)))
+        self.template_label.pack_forget()
+        self.note_label.pack_forget()
+        path_text = t("finish_template_path")
+        if path_text:
+            template = project_root() / "templates" / "search-prompt.md"
+            self.template_label.configure(
+                text=t("finish_template_path", path=str(template))
+            )
+            self.template_label.pack(anchor="w", pady=(12, 0))
+        self.note_label.pack(anchor="w", pady=(12, 0))
 
     def _flash(self, message: str) -> None:
         self.copy_feedback.configure(text=message, fg=COLORS["ok"])

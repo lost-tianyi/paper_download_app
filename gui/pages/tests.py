@@ -3,6 +3,7 @@ from __future__ import annotations
 import threading
 from tkinter import ttk
 
+from core.i18n import t
 from core.install_skills import InstallOptions
 from core.test_suite import run_standardized_tests
 from gui.pages.base import BasePage
@@ -16,7 +17,7 @@ class TestsPage(BasePage):
     def build(self) -> None:
         self.status = ttk.Label(
             self.body,
-            text="准备开始测试…",
+            text=t("tests_ready"),
             style="Body.TLabel",
         )
         self.status.pack(anchor="w", pady=(0, 8))
@@ -29,6 +30,7 @@ class TestsPage(BasePage):
         self._started = False
 
     def on_show(self) -> None:
+        self.refresh_header()
         if self._started:
             self.app.update_nav_state()
             return
@@ -36,10 +38,8 @@ class TestsPage(BasePage):
         self._done = False
         self._ok = False
         self.log.clear()
-        self.status.configure(text="测试进行中，请查看下方日志…")
-        self.log.append("============================================================")
-        self.log.append("开始标准化测试（用于确认 Skills 可用）")
-        self.log.append("============================================================")
+        self.status.configure(text=t("tests_running"))
+        self.log.append(t("tests_start_banner"))
         self.progress.start(12)
         self.app.set_busy(True)
         thread = threading.Thread(target=self._run_tests, daemon=True)
@@ -63,8 +63,6 @@ class TestsPage(BasePage):
 
     def _append_log(self, msg: str) -> None:
         self.log.append(msg)
-        if msg.startswith("测试 ") or msg.startswith("[步骤"):
-            self.status.configure(text=f"当前：{msg}")
 
     def _finish(self, ok: bool) -> None:
         self.progress.stop()
@@ -73,21 +71,22 @@ class TestsPage(BasePage):
         self.app.tests_ok = ok
         self.app.set_busy(False)
         if ok:
-            self.status.configure(text="全部测试通过")
-            self.log.append("[OK] 可以进入完成页")
+            self.status.configure(text=t("tests_done"))
+            self.log.append("[OK] " + t("tests_log_ok"))
         else:
-            self.status.configure(text="部分测试失败，请查看日志")
-            self.log.append("[FAIL] 请根据上方失败项排查后返回重试")
+            self.status.configure(text=t("tests_fail"))
+            self.log.append("[FAIL] " + t("tests_log_fail"))
         self.app.update_nav_state()
 
     def can_continue(self) -> bool:
-        return self._done and self._ok
+        # Allow continue even if some checks failed — finish page handles soft state.
+        return self._done
 
     def back_enabled(self) -> bool:
         return self._done and not self.app.busy
 
     def next_label(self) -> str:
-        return "完成" if self._ok else "下一步"
+        return t("tests_next_ok") if self._ok else t("next")
 
     def retry(self) -> None:
         self._started = False
