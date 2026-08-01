@@ -1,0 +1,40 @@
+name: Build Installers
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build macOS DMG
+        run: bash build/build_macos.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LiteratureReviewInstaller-macOS
+          path: |
+            dist/LiteratureReviewInstaller-macOS.dmg
+            dist/LiteratureReviewInstaller.app
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build Windows EXE
+        shell: pwsh
+        run: |
+          powershell -ExecutionPolicy Bypass -File build\build_windows.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LiteratureReviewInstaller-windows
+          path: dist/LiteratureReviewInstaller-windows.exe

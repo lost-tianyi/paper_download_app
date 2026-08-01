@@ -1,0 +1,2 @@
+# Build-time dependency for packaging the installer wizard.
+pyinstaller>=6.3.0
