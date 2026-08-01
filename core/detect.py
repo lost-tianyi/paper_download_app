@@ -86,7 +86,7 @@ class DetectionResult:
                 labels = "、".join(ASSISTANT_LABELS[k] for k in selected if k in ASSISTANT_LABELS)
                 msgs.append(f"勾选的助手尚未安装或未检测到：{labels or '（无）'}")
         if not self.zotero.found:
-            msgs.append("需要安装 Zotero")
+            msgs.append("未检测到 Zotero，请安装或手动指定路径")
         return msgs
 
 
@@ -274,7 +274,112 @@ def detect_cursor() -> AppHit:
     return hit
 
 
-def detect_zotero() -> AppHit:
+def _looks_like_zotero_app(path: Path) -> bool:
+    """Return True if path appears to be a Zotero install (cross-platform)."""
+    try:
+        path = path.expanduser()
+        if not path.exists():
+            return False
+    except OSError:
+        return False
+
+    name = path.name.lower()
+
+    if sys.platform == "darwin":
+        # Prefer *.app bundles named Zotero*.app
+        app = path
+        if path.is_file():
+            # Binary selected inside the bundle
+            for parent in path.parents:
+                if parent.suffix == ".app":
+                    app = parent
+                    break
+        if app.suffix == ".app" and app.is_dir():
+            if "zotero" not in app.stem.lower():
+                return False
+            macos_bin = app / "Contents" / "MacOS"
+            if not macos_bin.is_dir():
+                return False
+            # Official builds ship Contents/MacOS/zotero
+            for candidate in macos_bin.iterdir():
+                if candidate.is_file() and "zotero" in candidate.name.lower():
+                    return True
+            plist = app / "Contents" / "Info.plist"
+            return plist.is_file()
+        # Allow selecting the executable itself
+        return path.is_file() and "zotero" in name
+
+    if sys.platform == "win32":
+        if path.is_file():
+            return path.suffix.lower() == ".exe" and "zotero" in name
+        if path.is_dir():
+            return (path / "zotero.exe").is_file()
+        return False
+
+    # Linux: binary or known flatpak marker
+    if path.is_file() and os.access(path, os.X_OK) and "zotero" in name:
+        return True
+    return False
+
+
+def resolve_zotero_path(path: str | Path) -> AppHit:
+    """Validate a user-picked Zotero path and return an AppHit."""
+    hit = AppHit(name="Zotero", found=False)
+    raw = str(path or "").strip()
+    if not raw:
+        return hit
+
+    p = Path(raw).expanduser()
+    try:
+        p = p.resolve()
+    except OSError:
+        pass
+
+    if not p.exists():
+        return hit
+
+    if sys.platform == "darwin":
+        app = p
+        if p.is_file():
+            for parent in p.parents:
+                if parent.suffix == ".app":
+                    app = parent
+                    break
+        if app.suffix != ".app" and p.is_dir() and (p / "Contents" / "MacOS").is_dir():
+            app = p
+        if not _looks_like_zotero_app(app if app.suffix == ".app" else p):
+            return hit
+        target = app if app.suffix == ".app" else p
+        hit.app_path = str(target)
+        hit.cli_path = str(target)
+        hit.found = True
+        return hit
+
+    if sys.platform == "win32":
+        exe = p
+        if p.is_dir():
+            exe = p / "zotero.exe"
+        if not _looks_like_zotero_app(exe):
+            return hit
+        hit.app_path = str(exe)
+        hit.cli_path = str(exe)
+        hit.found = True
+        return hit
+
+    if _looks_like_zotero_app(p):
+        hit.app_path = str(p)
+        hit.cli_path = str(p)
+        hit.found = True
+    return hit
+
+
+def detect_zotero(manual_path: str = "") -> AppHit:
+    # Manual override first (user browsed a custom install location).
+    if manual_path:
+        manual = resolve_zotero_path(manual_path)
+        if manual.found:
+            return manual
+
     hit = AppHit(name="Zotero", found=False)
     cli = _which("zotero")
     if cli:
@@ -284,8 +389,18 @@ def detect_zotero() -> AppHit:
         return hit
 
     if sys.platform == "darwin":
-        app = _macos_app("Zotero") or _mdfind_bundle("org.zotero.zotero")
-        if app:
+        candidates: list[Path] = []
+        for base in (Path("/Applications"), Path.home() / "Applications"):
+            candidates.append(base / "Zotero.app")
+            if base.is_dir():
+                try:
+                    for child in base.iterdir():
+                        if child.suffix == ".app" and "zotero" in child.stem.lower():
+                            candidates.append(child)
+                except OSError:
+                    pass
+        app = _first_existing(candidates) or _mdfind_bundle("org.zotero.zotero")
+        if app and _looks_like_zotero_app(app):
             hit.app_path = str(app)
             hit.found = True
             return hit
@@ -293,11 +408,16 @@ def detect_zotero() -> AppHit:
         pf = Path(os.environ.get("ProgramFiles", r"C:\Program Files"))
         pf86 = Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)"))
         local = Path(os.environ.get("LOCALAPPDATA", ""))
+        home = Path.home()
         app = _first_existing(
             [
                 pf / "Zotero" / "zotero.exe",
                 pf86 / "Zotero" / "zotero.exe",
                 local / "Programs" / "Zotero" / "zotero.exe",
+                home / "AppData" / "Local" / "Programs" / "Zotero" / "zotero.exe",
+                home / "Zotero" / "zotero.exe",
+                Path(r"D:\Program Files\Zotero\zotero.exe"),
+                Path(r"D:\Zotero\zotero.exe"),
             ]
         )
         if app:
@@ -322,10 +442,10 @@ def detect_zotero() -> AppHit:
     return hit
 
 
-def detect_environment() -> DetectionResult:
+def detect_environment(manual_zotero_path: str = "") -> DetectionResult:
     return DetectionResult(
         codex=detect_codex(),
         claude=detect_claude(),
         cursor=detect_cursor(),
-        zotero=detect_zotero(),
+        zotero=detect_zotero(manual_path=manual_zotero_path),
     )

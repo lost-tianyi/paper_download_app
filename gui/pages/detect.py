@@ -1,10 +1,17 @@
 from __future__ import annotations
 
+import sys
 import tkinter as tk
-from tkinter import ttk
+from pathlib import Path
+from tkinter import filedialog, messagebox, ttk
 
 from core.config import DOWNLOAD_URLS
-from core.detect import ASSISTANT_KEYS, ASSISTANT_LABELS, detect_environment
+from core.detect import (
+    ASSISTANT_KEYS,
+    ASSISTANT_LABELS,
+    detect_environment,
+    resolve_zotero_path,
+)
 from gui.pages.base import BasePage
 from gui.widgets import COLORS, open_url, status_label
 
@@ -55,6 +62,12 @@ class DetectPage(BasePage):
             command=self._select_all_found,
             style="Nav.TButton",
         ).pack(side="left", padx=(8, 0))
+        ttk.Button(
+            btn_row,
+            text="浏览选择 Zotero…",
+            command=self._browse_zotero,
+            style="Accent.TButton",
+        ).pack(side="left", padx=(8, 0))
 
         self.link_frame = ttk.Frame(self.body, style="Panel.TFrame")
         self.link_frame.pack(fill="x", pady=(16, 0))
@@ -69,13 +82,14 @@ class DetectPage(BasePage):
         for child in self.link_frame.winfo_children():
             child.destroy()
 
-        result = detect_environment()
+        manual = str(getattr(self.app, "manual_zotero_path", "") or "")
+        result = detect_environment(manual_zotero_path=manual)
         self.app.detection = result
 
         self._add_hit(result.codex, "编码助手")
         self._add_hit(result.claude, "编码助手")
         self._add_hit(result.cursor, "编码助手")
-        self._add_hit(result.zotero, "文献管理")
+        self._add_zotero_hit(result.zotero, manual=bool(manual and result.zotero.found))
 
         previous = set(getattr(self.app, "selected_assistants", ()) or ())
         for key in ASSISTANT_KEYS:
@@ -112,12 +126,90 @@ class DetectPage(BasePage):
         if not result.zotero.found:
             ttk.Label(
                 self.link_frame,
-                text="请安装 Zotero：",
+                text="未找到 Zotero：可下载安装，或点击上方「浏览选择 Zotero…」指定本机路径。",
                 style="Muted.TLabel",
             ).pack(anchor="w", pady=(10, 0))
-            self._link_button("下载 Zotero", DOWNLOAD_URLS["zotero"])
+            row = ttk.Frame(self.link_frame, style="Panel.TFrame")
+            row.pack(fill="x", pady=(4, 0))
+            self._link_button("下载 Zotero", DOWNLOAD_URLS["zotero"], parent=row)
+            ttk.Button(
+                row,
+                text="浏览选择 Zotero…",
+                style="Accent.TButton",
+                command=self._browse_zotero,
+            ).pack(side="left", padx=(0, 8), pady=4)
 
         self.app.update_nav_state()
+
+    def _browse_zotero(self) -> None:
+        if sys.platform == "darwin":
+            path = filedialog.askdirectory(
+                parent=self.app.root,
+                title="选择 Zotero.app（通常在「应用程序」文件夹）",
+                initialdir="/Applications",
+                mustexist=True,
+            )
+        elif sys.platform == "win32":
+            import os
+
+            initial = os.environ.get("ProgramFiles", r"C:\Program Files")
+            path = filedialog.askopenfilename(
+                parent=self.app.root,
+                title="选择 zotero.exe",
+                initialdir=initial,
+                filetypes=[
+                    ("Zotero", "zotero.exe"),
+                    ("可执行文件", "*.exe"),
+                    ("所有文件", "*.*"),
+                ],
+            )
+        else:
+            path = filedialog.askopenfilename(
+                parent=self.app.root,
+                title="选择 Zotero 可执行文件",
+                filetypes=[("所有文件", "*.*")],
+            )
+
+        if not path:
+            return
+
+        hit = resolve_zotero_path(path)
+        if not hit.found:
+            # On macOS, user might select Applications folder by mistake.
+            guess = Path(path)
+            if sys.platform == "darwin" and guess.is_dir():
+                candidate = guess / "Zotero.app"
+                if candidate.exists():
+                    hit = resolve_zotero_path(candidate)
+            if sys.platform == "win32" and guess.is_dir():
+                candidate = guess / "zotero.exe"
+                if candidate.exists():
+                    hit = resolve_zotero_path(candidate)
+
+        if not hit.found:
+            tip = (
+                "请选择 Zotero.app（例如 /Applications/Zotero.app）"
+                if sys.platform == "darwin"
+                else "请选择 zotero.exe（例如 C:\\Program Files\\Zotero\\zotero.exe）"
+            )
+            messagebox.showerror(
+                "无法识别为 Zotero",
+                f"所选路径无法确认为 Zotero 安装：\n{path}\n\n{tip}",
+                parent=self.app.root,
+            )
+            return
+
+        self.app.manual_zotero_path = hit.app_path
+        self.refresh()
+        messagebox.showinfo(
+            "已指定 Zotero",
+            f"已使用手动路径：\n{hit.app_path}",
+            parent=self.app.root,
+        )
+
+    def _clear_manual_zotero(self) -> None:
+        self.app.manual_zotero_path = ""
+        self.refresh()
 
     def _select_all_found(self) -> None:
         detection = self.app.detection
@@ -182,9 +274,48 @@ class DetectPage(BasePage):
                 style="Muted.TLabel",
             ).pack(anchor="w")
 
-    def _link_button(self, text: str, url: str) -> None:
+    def _add_zotero_hit(self, hit, manual: bool = False) -> None:
+        box = ttk.Frame(self.status_frame, style="Panel.TFrame")
+        box.pack(fill="x", pady=4)
+        label = "Zotero（文献管理）"
+        if hit.found and manual:
+            label += " · 手动指定"
+        status_label(box, label, ok=hit.found).pack(anchor="w")
+        if hit.app_path:
+            ttk.Label(
+                box,
+                text=f"    App: {hit.app_path}",
+                style="Muted.TLabel",
+            ).pack(anchor="w")
+        elif not hit.found:
+            ttk.Label(
+                box,
+                text="    未找到。若已安装在自定义位置，请点击「浏览选择 Zotero…」",
+                style="Muted.TLabel",
+            ).pack(anchor="w")
+
+        action = ttk.Frame(box, style="Panel.TFrame")
+        action.pack(anchor="w", pady=(2, 0))
         ttk.Button(
-            self.link_frame,
+            action,
+            text="浏览选择…",
+            style="Nav.TButton",
+            command=self._browse_zotero,
+        ).pack(side="left")
+        if manual and hit.found:
+            ttk.Button(
+                action,
+                text="清除手动路径",
+                style="Nav.TButton",
+                command=self._clear_manual_zotero,
+            ).pack(side="left", padx=(8, 0))
+
+    def _link_button(
+        self, text: str, url: str, parent: ttk.Frame | None = None
+    ) -> None:
+        host = parent or self.link_frame
+        ttk.Button(
+            host,
             text=text,
             style="Nav.TButton",
             command=lambda u=url: open_url(u),

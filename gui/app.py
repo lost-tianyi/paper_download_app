@@ -35,6 +35,7 @@ class InstallerApp:
         self.detection: Optional[DetectionResult] = None
         self.options: InstallOptions = InstallOptions()
         self.selected_assistants: tuple[str, ...] = ()
+        self.manual_zotero_path: str = ""
         self.install_ok = False
         self.tests_ok = False
         self.busy = False
