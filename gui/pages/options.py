@@ -44,7 +44,7 @@ class OptionsPage(BasePage):
 
         ttk.Label(
             self.body,
-            text="下一步将克隆技能仓库、写入 skills 目录，并安装 Python 依赖。",
+            text="下一步将从安装包内置素材复制 Skills，并尝试离线安装 Python 依赖。",
             style="Muted.TLabel",
         ).pack(anchor="w", pady=(18, 0))
 

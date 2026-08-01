@@ -9,6 +9,19 @@ $OutName = "${AppName}-windows.exe"
 
 Set-Location $Root
 
+Write-Host "==> Vendoring offline skills into bundled/"
+if (Test-Path (Join-Path $Root "build\vendor_skills.sh")) {
+  # Prefer committed bundled/; refresh via bash when Git Bash / WSL available.
+  $bash = Get-Command bash -ErrorAction SilentlyContinue
+  if ($bash) {
+    & bash (Join-Path $Root "build\vendor_skills.sh")
+  } elseif (-not (Test-Path (Join-Path $Root "bundled\skills\academic-search\SKILL.md"))) {
+    throw "bundled/skills missing. Commit vendored skills or run build/vendor_skills.sh"
+  } else {
+    Write-Host "Using committed bundled/ skills (bash not found)"
+  }
+}
+
 Write-Host "==> Installing build dependency (pyinstaller)"
 python -m pip install -q -r requirements-gui.txt
 

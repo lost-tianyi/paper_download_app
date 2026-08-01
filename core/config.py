@@ -25,6 +25,19 @@ def project_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
+def bundled_dir() -> Path:
+    """Offline skills/wheels directory shipped inside the installer."""
+    root = project_root()
+    candidates = [
+        root / "bundled",
+        root / "Resources" / "bundled",  # macOS app Contents/Resources via some layouts
+    ]
+    for path in candidates:
+        if (path / "skills").is_dir():
+            return path
+    return root / "bundled"
+
+
 def user_cache_dir() -> Path:
     home = Path.home()
     if sys.platform == "darwin":
@@ -43,21 +56,19 @@ def user_cache_dir() -> Path:
 class SkillSpec:
     name: str
     url: str
-    subdir: str  # "." means repo root
     description: str
+    # Offline package lives at bundled/skills/<name>/ (already install-ready).
 
 
 SKILLS: tuple[SkillSpec, ...] = (
     SkillSpec(
         name="academic-search",
         url="https://github.com/ustc-ai4science/academic-search.git",
-        subdir=".",
         description="学术文献检索、核验与结构化导出",
     ),
     SkillSpec(
         name="sciencedirect-live-session-fetcher",
         url="https://github.com/Given-Dream/sciencedirect-live-session-fetcher.git",
-        subdir="codex-skill",
         description="通过已授权浏览器会话合法串行下载 PDF",
     ),
 )

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from tkinter import ttk
 
-from core.config import APP_NAME, APP_VERSION, DOWNLOAD_URLS
+from core.config import APP_NAME, APP_VERSION
 from gui.pages.base import BasePage
 
 
@@ -13,6 +13,8 @@ class WelcomePage(BasePage):
     def build(self) -> None:
         lines = [
             "本向导将帮助你完成 AI 文献综述工作流的环境检测与 Skills 安装。",
+            "",
+            "安装包已内置全部 Skills 素材，安装过程离线复制，无需再联网下载。",
             "",
             "将安装的 Skills：",
             "  1. academic-search — 学术检索、DOI 核验、结构化导出",
@@ -34,7 +36,7 @@ class WelcomePage(BasePage):
 
         ttk.Label(
             self.body,
-            text=f"技能仓库：{DOWNLOAD_URLS['academic_search']}",
+            text="素材已打包在安装程序内（bundled/skills）",
             style="Muted.TLabel",
         ).pack(anchor="w", pady=(18, 0))
 

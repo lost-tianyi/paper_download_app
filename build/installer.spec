@@ -9,10 +9,17 @@ from pathlib import Path
 SPECDIR = Path(SPECPATH).resolve()
 ROOT = SPECDIR.parent
 
+bundled = ROOT / "bundled"
+if not (bundled / "skills" / "academic-search" / "SKILL.md").is_file():
+    raise SystemExit(
+        "bundled/skills missing. Run: bash build/vendor_skills.sh"
+    )
+
 datas = [
     (str(ROOT / "templates"), "templates"),
     (str(ROOT / "config"), "config"),
     (str(ROOT / "README.md"), "."),
+    (str(bundled), "bundled"),
 ]
 
 hiddenimports = [

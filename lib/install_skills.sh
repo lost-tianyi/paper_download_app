@@ -1,71 +1,28 @@
 #!/usr/bin/env bash
-# Clone/copy literature-review skills into assistant skill directories.
+# Install literature-review skills from offline bundled/ packages.
 
 set -euo pipefail
 
 # shellcheck disable=SC1091
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/detect.sh"
 
-INSTALL_CACHE_DIR="${INSTALLER_ROOT}/.cache/skills"
-FORCE_REINSTALL="${FORCE_REINSTALL:-0}"
-DRY_RUN="${DRY_RUN:-0}"
+BUNDLED_SKILLS_DIR="${INSTALLER_ROOT}/bundled/skills"
+BUNDLED_WHEELS_DIR="${INSTALLER_ROOT}/bundled/wheels"
 
-ensure_git() {
-  require_cmd git
-}
-
-refresh_skill_cache() {
+install_one_skill_from_bundle() {
   local name="$1"
-  local url="$2"
-  local dest="${INSTALL_CACHE_DIR}/${name}"
+  local target_root="$2"
+  local source_dir="${BUNDLED_SKILLS_DIR}/${name}"
+  local target_dir="${target_root}/${name}"
 
-  mkdir -p "${INSTALL_CACHE_DIR}"
-
-  if [[ -d "${dest}/.git" ]]; then
-    info "更新缓存: ${name}"
-    if is_truthy "${DRY_RUN}"; then
-      log "  [dry-run] git -C ${dest} pull --ff-only"
-    else
-      git -C "${dest}" fetch --depth 1 origin HEAD >/dev/null 2>&1 || true
-      git -C "${dest}" reset --hard FETCH_HEAD >/dev/null 2>&1 \
-        || git -C "${dest}" pull --ff-only >/dev/null
-    fi
-  else
-    info "克隆技能仓库: ${name}"
-    if is_truthy "${DRY_RUN}"; then
-      log "  [dry-run] git clone --depth 1 ${url} ${dest}"
-    else
-      rm -rf "${dest}"
-      git clone --depth 1 "${url}" "${dest}" >/dev/null
-    fi
-  fi
-
-  printf '%s\n' "${dest}"
-}
-
-install_one_skill_to_dir() {
-  local name="$1"
-  local cache_root="$2"
-  local subdir="$3"
-  local target_root="$4"
-  local source_dir target_dir
-
-  if [[ "${subdir}" == "." || -z "${subdir}" ]]; then
-    source_dir="${cache_root}"
-  else
-    source_dir="${cache_root}/${subdir}"
-  fi
-
-  [[ -f "${source_dir}/SKILL.md" ]] || die "技能包缺少 SKILL.md: ${source_dir}"
-
-  target_dir="${target_root}/${name}"
+  [[ -f "${source_dir}/SKILL.md" ]] || die "安装包缺少离线技能: ${source_dir}"
 
   if [[ -f "${target_dir}/SKILL.md" ]]; then
     info "覆盖已有技能: ${target_dir}"
   fi
 
-  if is_truthy "${DRY_RUN}"; then
-    log "  [dry-run] rsync ${source_dir}/ -> ${target_dir}/"
+  if is_truthy "${DRY_RUN:-0}"; then
+    log "  [dry-run] copy ${source_dir}/ -> ${target_dir}/"
     return 0
   fi
 
@@ -81,7 +38,6 @@ install_one_skill_to_dir() {
       --exclude '.DS_Store' \
       "${source_dir}/" "${target_dir}/"
   else
-    # Portable fallback
     tar -C "${source_dir}" \
       --exclude '.git' \
       --exclude '.github' \
@@ -99,21 +55,26 @@ install_python_deps_for_download_skill() {
   local req="${skill_dir}/scripts/requirements.txt"
 
   [[ -f "${req}" ]] || return 0
-  require_cmd python3
-
-  info "安装下载技能 Python 依赖: ${req}"
-  if is_truthy "${DRY_RUN}"; then
-    log "  [dry-run] python3 -m pip install -r ${req}"
+  if [[ ! -d "${BUNDLED_WHEELS_DIR}" ]] || ! ls "${BUNDLED_WHEELS_DIR}"/*.whl >/dev/null 2>&1; then
+    warn "未找到离线 wheels，跳过 pip"
     return 0
   fi
 
-  python3 -m pip install --user -r "${req}" >/tmp/literature-workflow-pip.log 2>&1 \
-    || warn "Python 依赖安装未完全成功，详见 /tmp/literature-workflow-pip.log（后续测试会继续检查）"
+  require_cmd python3
+  info "离线安装下载技能 Python 依赖"
+  if is_truthy "${DRY_RUN:-0}"; then
+    log "  [dry-run] pip install --no-index --find-links=${BUNDLED_WHEELS_DIR} -r ${req}"
+    return 0
+  fi
+
+  python3 -m pip install --user --no-index --find-links="${BUNDLED_WHEELS_DIR}" -r "${req}" \
+    >/tmp/literature-workflow-pip.log 2>&1 \
+    || warn "离线 pip 未完全成功，详见 /tmp/literature-workflow-pip.log"
 }
 
 install_all_skills() {
-  ensure_git
-  section "安装 Skills"
+  section "安装 Skills（离线）"
+  [[ -d "${BUNDLED_SKILLS_DIR}" ]] || die "缺少 ${BUNDLED_SKILLS_DIR}，请先运行 bash build/vendor_skills.sh"
 
   local targets=()
   local dir
@@ -123,21 +84,14 @@ install_all_skills() {
 
   (( ${#targets[@]} > 0 )) || die "未找到可用的技能安装目录"
 
-  local spec name url subdir desc cache_root target first_download_skill=""
+  local spec name target first_download_skill=""
   while IFS= read -r spec; do
     [[ -z "${spec}" ]] && continue
     name="$(parse_skill_field "${spec}" name)"
-    url="$(parse_skill_field "${spec}" url)"
-    subdir="$(parse_skill_field "${spec}" subdir)"
-    desc="$(parse_skill_field "${spec}" desc)"
-
-    info "${name}: ${desc}"
-    cache_root="$(refresh_skill_cache "${name}" "${url}")"
-
+    info "${name}: $(parse_skill_field "${spec}" desc)"
     for target in "${targets[@]}"; do
-      install_one_skill_to_dir "${name}" "${cache_root}" "${subdir}" "${target}"
+      install_one_skill_from_bundle "${name}" "${target}"
     done
-
     if [[ "${name}" == "sciencedirect-live-session-fetcher" ]]; then
       first_download_skill="${targets[0]}/${name}"
     fi
@@ -147,7 +101,7 @@ install_all_skills() {
     install_python_deps_for_download_skill "${first_download_skill}"
   fi
 
-  ok "Skills 安装完成"
+  ok "Skills 安装完成（全部来自安装包内置素材）"
 }
 
 verify_skill_layout() {

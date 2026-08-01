@@ -7,6 +7,8 @@
 
 工作流参考：`AI_Based_Literature_Review_Workflow_Refined-20260730.docx`
 
+**离线安装**：安装包内已包含 `bundled/skills` 与依赖 wheels，安装时只做本地复制，不再从 GitHub 克隆。
+
 ## 普通用户：图形安装包
 
 | 系统 | 安装文件 |
@@ -36,7 +38,7 @@ cd /path/to/paper_download_app
 python3 run_gui.py
 ```
 
-依赖：系统 Python 3.10+（使用标准库 `tkinter`，无需额外 GUI 包）、`git`、`curl`/`网络`、`node`（academic-search 自检）。
+依赖：系统 Python 3.10+（使用标准库 `tkinter`）、`node`（academic-search 自检）。Skills 本体来自仓库内 `bundled/`，运行安装向导不再需要 git/联网。
 
 ## 打包安装文件
 

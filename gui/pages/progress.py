@@ -11,7 +11,7 @@ from gui.widgets import LogView
 
 class ProgressPage(BasePage):
     title = "安装进度"
-    subtitle = "正在克隆仓库并写入 Skills 目录"
+    subtitle = "正在从安装包内置素材复制 Skills（离线）"
 
     def build(self) -> None:
         self.log = LogView(self.body, height=18)

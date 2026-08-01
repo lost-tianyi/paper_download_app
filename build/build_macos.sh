@@ -10,6 +10,9 @@ DMG_NAME="${APP_NAME}-macOS.dmg"
 
 cd "${ROOT}"
 
+echo "==> Vendoring offline skills into bundled/"
+bash "${ROOT}/build/vendor_skills.sh"
+
 echo "==> Installing build dependency (pyinstaller)"
 python3 -m pip install --user -q -r requirements-gui.txt
 
