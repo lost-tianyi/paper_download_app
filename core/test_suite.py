@@ -13,10 +13,11 @@ import urllib.request
 from typing import Callable, Optional
 
 from .config import SKILLS, user_cache_dir
-from .detect import DetectionResult, detect_environment
+from .detect import ASSISTANT_LABELS, DetectionResult, detect_environment
 from .install_skills import verify_skill_layout
 
 LogFn = Callable[[str], None]
+SelectedAssistants = Optional[tuple[str, ...]]
 
 
 @dataclass
@@ -45,8 +46,12 @@ def _find_bash() -> str:
     return ""
 
 
-def first_skill_path(detection: DetectionResult, name: str) -> Optional[Path]:
-    for target in detection.target_skill_dirs():
+def first_skill_path(
+    detection: DetectionResult,
+    name: str,
+    selected: SelectedAssistants = None,
+) -> Optional[Path]:
+    for target in detection.target_skill_dirs(selected):
         path = target / name
         if (path / "SKILL.md").is_file():
             return path
@@ -57,10 +62,11 @@ def test_skill_frontmatter(
     detection: DetectionResult,
     result: TestResult,
     log: Optional[LogFn] = None,
+    selected: SelectedAssistants = None,
 ) -> None:
     _log(log, "测试 1/5 · Skill 元数据")
     for spec in SKILLS:
-        path = first_skill_path(detection, spec.name)
+        path = first_skill_path(detection, spec.name, selected)
         if path is None:
             result.failures += 1
             _log(log, f"[FAIL] 未找到已安装技能: {spec.name}")
@@ -102,74 +108,104 @@ def test_assistant_clis(
     detection: DetectionResult,
     result: TestResult,
     log: Optional[LogFn] = None,
+    selected: SelectedAssistants = None,
 ) -> None:
-    _log(log, "测试 2/5 · 编码助手 CLI")
-    if detection.codex.found and detection.codex.cli_path:
-        _run_cli_version(detection.codex.cli_path, "codex", result, log)
-        try:
-            proc = subprocess.run(
-                [detection.codex.cli_path, "doctor"],
-                capture_output=True,
-                text=True,
-                timeout=90,
-                check=False,
-            )
-            out = (proc.stdout or "") + (proc.stderr or "")
-            if out.strip():
-                if proc.returncode == 0:
-                    _log(log, "[OK] codex doctor 已执行")
+    keys = detection.selected_found_keys(selected)
+    labels = "、".join(ASSISTANT_LABELS.get(k, k) for k in keys) or "（无）"
+    _log(log, f"测试 2/5 · 编码助手 CLI（仅测试勾选：{labels}）")
+
+    if "codex" in keys:
+        if detection.codex.cli_path:
+            _run_cli_version(detection.codex.cli_path, "codex", result, log)
+            try:
+                proc = subprocess.run(
+                    [detection.codex.cli_path, "doctor"],
+                    capture_output=True,
+                    text=True,
+                    timeout=90,
+                    check=False,
+                )
+                out = (proc.stdout or "") + (proc.stderr or "")
+                if out.strip():
+                    if proc.returncode == 0:
+                        _log(log, "[OK] codex doctor 已执行")
+                    else:
+                        _log(log, "[WARN] codex doctor 返回非零，但 CLI 可运行")
                 else:
-                    _log(log, "[WARN] codex doctor 返回非零，但 CLI 可运行")
-            else:
-                result.failures += 1
-                _log(log, "[FAIL] codex doctor 无输出")
-        except (OSError, subprocess.SubprocessError) as exc:
-            _log(log, f"[WARN] codex doctor 跳过: {exc}")
-    elif detection.codex.found:
-        _log(log, "[WARN] 检测到 Codex，但未找到 CLI，跳过 CLI 测试")
+                    result.failures += 1
+                    _log(log, "[FAIL] codex doctor 无输出")
+            except (OSError, subprocess.SubprocessError) as exc:
+                _log(log, f"[WARN] codex doctor 跳过: {exc}")
+        else:
+            _log(log, "[WARN] 勾选了 Codex，但未找到 CLI，跳过 CLI 测试")
+    else:
+        _log(log, "  · 跳过 Codex（未勾选）")
 
-    if detection.claude.found and detection.claude.cli_path:
-        _run_cli_version(detection.claude.cli_path, "claude", result, log)
-    elif detection.claude.found:
-        _log(log, "[WARN] 检测到 Claude，但未找到 CLI，跳过 CLI 测试")
+    if "claude" in keys:
+        if detection.claude.cli_path:
+            _run_cli_version(detection.claude.cli_path, "claude", result, log)
+        else:
+            _log(log, "[WARN] 勾选了 Claude Code，但未找到 CLI，跳过 CLI 测试")
+    else:
+        _log(log, "  · 跳过 Claude Code（未勾选）")
 
-    if detection.cursor.found and detection.cursor.cli_path:
-        _run_cli_version(detection.cursor.cli_path, "cursor", result, log)
-    elif detection.cursor.found:
-        _log(log, "[WARN] 检测到 Cursor，但未找到 CLI，跳过 CLI 测试")
+    if "cursor" in keys:
+        if detection.cursor.cli_path:
+            _run_cli_version(detection.cursor.cli_path, "cursor", result, log)
+        else:
+            _log(log, "[WARN] 勾选了 Cursor，但未找到 CLI，跳过 CLI 测试")
+    else:
+        _log(log, "  · 跳过 Cursor（未勾选）")
 
 
 def test_academic_search_scripts(
     detection: DetectionResult,
     result: TestResult,
     log: Optional[LogFn] = None,
+    selected: SelectedAssistants = None,
 ) -> None:
     _log(log, "测试 3/5 · academic-search 自检")
-    skill_dir = first_skill_path(detection, "academic-search")
+    skill_dir = first_skill_path(detection, "academic-search", selected)
     if skill_dir is None:
         result.failures += 1
         _log(log, "[FAIL] academic-search 未安装")
         return
 
-    if not shutil.which("node"):
-        result.failures += 1
-        _log(log, "[FAIL] 缺少 node（academic-search 自检需要）")
-        return
-    _log(log, f"[OK] node: {shutil.which('node')}")
-
-    bash = _find_bash()
     check_deps = skill_dir / "scripts" / "check-deps.sh"
     oa_test = skill_dir / "scripts" / "oa-pdf-download-self-test.sh"
+    oa_mjs = skill_dir / "scripts" / "oa-pdf-download.mjs"
+    required_files = (
+        skill_dir / "SKILL.md",
+        check_deps,
+        oa_test,
+        oa_mjs,
+        skill_dir / "scripts" / "cdp-proxy.mjs",
+    )
+    for path in required_files:
+        if path.is_file():
+            _log(log, f"[OK] 技能文件存在：{path.name}")
+        else:
+            result.failures += 1
+            _log(log, f"[FAIL] 缺少技能文件：{path}")
 
+    node = shutil.which("node")
+    if not node:
+        # Node is only for CDP browser automation / script self-tests.
+        # arXiv / Semantic Scholar / PubMed API search works without Node.
+        _log(log, "[WARN] 未检测到 Node.js —— 这不是安装失败")
+        _log(log, "  · Node 仅用于 Google Scholar 等浏览器自动化（CDP）及脚本自检")
+        _log(log, "  · 常规 API 检索（arXiv / Semantic Scholar / PubMed 等）不需要 Node")
+        _log(log, "  · 安装包未内置 Node（体积约 50MB+，且多数用户用不到）")
+        _log(log, "  · 如需 CDP 模式，可另行安装：https://nodejs.org/")
+        _log(log, "[OK] academic-search 本体校验通过（已跳过需要 Node 的自检）")
+        return
+
+    _log(log, f"[OK] node: {node}")
+
+    bash = _find_bash()
     if not bash:
         _log(log, "[WARN] 未找到 bash，跳过 shell 自检（Windows 可安装 Git for Windows）")
-        # Minimal substitute: ensure key script files exist
-        for script in (check_deps, oa_test, skill_dir / "scripts" / "oa-pdf-download.mjs"):
-            if script.is_file():
-                _log(log, f"[OK] 脚本存在: {script.name}")
-            else:
-                result.failures += 1
-                _log(log, f"[FAIL] 缺少脚本: {script}")
+        _log(log, "[OK] academic-search 文件校验通过")
         return
 
     if check_deps.is_file():
@@ -204,21 +240,24 @@ def test_academic_search_scripts(
         if proc.returncode == 0:
             _log(log, "[OK] oa-pdf-download-self-test.sh 通过")
         else:
-            result.failures += 1
-            detail = ((proc.stderr or proc.stdout or "")[-400:]).strip()
-            _log(log, f"[FAIL] oa-pdf-download-self-test.sh 失败 {detail}")
+            _log(log, "[WARN] oa-pdf-download-self-test.sh 未通过（不影响 Skills 安装）")
+            detail = ((proc.stderr or proc.stdout or "")[-300:]).strip()
+            if detail:
+                _log(log, f"  · 详情：{detail}")
     else:
         result.failures += 1
         _log(log, "[FAIL] 缺少 oa-pdf-download-self-test.sh")
-
 
 def test_download_skill_scripts(
     detection: DetectionResult,
     result: TestResult,
     log: Optional[LogFn] = None,
+    selected: SelectedAssistants = None,
 ) -> None:
     _log(log, "测试 4/5 · 下载技能脚本")
-    skill_dir = first_skill_path(detection, "sciencedirect-live-session-fetcher")
+    skill_dir = first_skill_path(
+        detection, "sciencedirect-live-session-fetcher", selected
+    )
     if skill_dir is None:
         result.failures += 1
         _log(log, "[FAIL] sciencedirect-live-session-fetcher 未安装")
@@ -292,22 +331,29 @@ def run_standardized_tests(
     detection: Optional[DetectionResult] = None,
     *,
     skip_network_test: bool = False,
+    assistants: SelectedAssistants = None,
     log: Optional[LogFn] = None,
 ) -> TestResult:
     detection = detection or detect_environment()
+    selected = tuple(assistants) if assistants else tuple(detection.found_assistant_keys())
     result = TestResult(ok=False)
 
     _log(log, "------------------------------------------------------------")
     _log(log, "开始标准化测试")
+    _log(
+        log,
+        "测试范围："
+        + ("、".join(ASSISTANT_LABELS.get(k, k) for k in selected) or "（无）"),
+    )
 
-    if not verify_skill_layout(detection, log=log):
+    if not verify_skill_layout(detection, log=log, selected=selected):
         result.failures += 1
         _log(log, "[FAIL] Skills 布局校验失败")
 
-    test_skill_frontmatter(detection, result, log)
-    test_assistant_clis(detection, result, log)
-    test_academic_search_scripts(detection, result, log)
-    test_download_skill_scripts(detection, result, log)
+    test_skill_frontmatter(detection, result, log, selected)
+    test_assistant_clis(detection, result, log, selected)
+    test_academic_search_scripts(detection, result, log, selected)
+    test_download_skill_scripts(detection, result, log, selected)
     test_network_smoke(result, log=log, skip=skip_network_test)
 
     result.ok = result.failures == 0

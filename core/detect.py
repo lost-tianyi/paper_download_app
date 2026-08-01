@@ -8,7 +8,16 @@ import os
 import shutil
 import subprocess
 import sys
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Sequence
+
+
+# Stable keys used by installer selection / install / tests.
+ASSISTANT_KEYS: tuple[str, ...] = ("codex", "claude", "cursor")
+ASSISTANT_LABELS = {
+    "codex": "Codex",
+    "claude": "Claude Code",
+    "cursor": "Cursor",
+}
 
 
 @dataclass
@@ -28,25 +37,54 @@ class DetectionResult:
     zotero: AppHit
     platform: str = field(default_factory=lambda: sys.platform)
 
+    def hit(self, key: str) -> AppHit:
+        if key == "codex":
+            return self.codex
+        if key == "claude":
+            return self.claude
+        if key == "cursor":
+            return self.cursor
+        raise KeyError(f"unknown assistant key: {key}")
+
+    def found_assistant_keys(self) -> list[str]:
+        return [key for key in ASSISTANT_KEYS if self.hit(key).found]
+
     @property
     def assistant_count(self) -> int:
-        return sum(1 for a in (self.codex, self.claude, self.cursor) if a.found)
+        return len(self.found_assistant_keys())
 
     @property
     def ok(self) -> bool:
         return self.assistant_count > 0 and self.zotero.found
 
-    def target_skill_dirs(self) -> list[Path]:
+    def selected_found_keys(self, selected: Sequence[str] | None = None) -> list[str]:
+        if selected is None:
+            return self.found_assistant_keys()
+        wanted = {k for k in selected if k in ASSISTANT_KEYS}
+        return [key for key in ASSISTANT_KEYS if key in wanted and self.hit(key).found]
+
+    def ok_for_selection(self, selected: Sequence[str]) -> bool:
+        return bool(self.selected_found_keys(selected)) and self.zotero.found
+
+    def target_skill_dirs(self, selected: Sequence[str] | None = None) -> list[Path]:
         dirs: list[Path] = []
-        for hit in (self.codex, self.claude, self.cursor):
-            if hit.found and hit.skills_dir:
+        for key in self.selected_found_keys(selected):
+            hit = self.hit(key)
+            if hit.skills_dir:
                 dirs.append(Path(hit.skills_dir))
         return dirs
 
-    def missing_messages(self) -> list[str]:
+    def missing_messages(self, selected: Sequence[str] | None = None) -> list[str]:
         msgs: list[str] = []
-        if self.assistant_count == 0:
-            msgs.append("需要至少安装 Codex / Claude Code / Cursor 其中之一")
+        if selected is None:
+            if self.assistant_count == 0:
+                msgs.append("需要至少安装 Codex / Claude Code / Cursor 其中之一")
+        else:
+            if not selected:
+                msgs.append("请至少勾选一个 AI 编程助手")
+            elif not self.selected_found_keys(selected):
+                labels = "、".join(ASSISTANT_LABELS[k] for k in selected if k in ASSISTANT_LABELS)
+                msgs.append(f"勾选的助手尚未安装或未检测到：{labels or '（无）'}")
         if not self.zotero.found:
             msgs.append("需要安装 Zotero")
         return msgs

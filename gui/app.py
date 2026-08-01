@@ -25,14 +25,16 @@ class InstallerApp:
     def __init__(self) -> None:
         self.root = tk.Tk()
         self.root.title(APP_NAME)
-        self.root.geometry("920x620")
-        self.root.minsize(860, 560)
+        self.root.geometry("960x640")
+        self.root.minsize(900, 600)
         self.root.configure(bg=COLORS["bg"])
+        self._set_window_icon()
 
         configure_styles(self.root)
 
         self.detection: Optional[DetectionResult] = None
         self.options: InstallOptions = InstallOptions()
+        self.selected_assistants: tuple[str, ...] = ()
         self.install_ok = False
         self.tests_ok = False
         self.busy = False
@@ -41,10 +43,10 @@ class InstallerApp:
         shell = ttk.Frame(self.root, style="Root.TFrame")
         shell.pack(fill="both", expand=True)
 
-        self.sidebar = StepSidebar(shell, WIZARD_STEPS, width=200)
+        self.sidebar = StepSidebar(shell, WIZARD_STEPS, width=220)
         self.sidebar.pack(side="left", fill="y")
         self.sidebar.pack_propagate(False)
-        self.sidebar.configure(width=210)
+        self.sidebar.configure(width=230)
 
         right = ttk.Frame(shell, style="Root.TFrame")
         right.pack(side="left", fill="both", expand=True, padx=16, pady=16)
@@ -77,6 +79,24 @@ class InstallerApp:
             page.place(in_=self.page_host, x=0, y=0, relwidth=1, relheight=1)
 
         self.show_page(0)
+
+    def _set_window_icon(self) -> None:
+        try:
+            from pathlib import Path
+            from core.config import project_root
+
+            candidates = [
+                project_root() / "assets" / "app-icon-256.png",
+                project_root() / "assets" / "app-icon.png",
+                Path(__file__).resolve().parents[1] / "assets" / "app-icon-256.png",
+            ]
+            path = next((p for p in candidates if p.is_file()), None)
+            if path is None:
+                return
+            self._icon_img = tk.PhotoImage(file=str(path))
+            self.root.iconphoto(True, self._icon_img)
+        except Exception:
+            pass
 
     def set_busy(self, busy: bool) -> None:
         self.busy = busy

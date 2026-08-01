@@ -4,6 +4,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from core.config import SKILLS
+from core.detect import ASSISTANT_LABELS
 from core.install_skills import InstallOptions
 from gui.pages.base import BasePage
 
@@ -28,6 +29,7 @@ class OptionsPage(BasePage):
 
         self.force_var = tk.BooleanVar(value=False)
         self.skip_network_var = tk.BooleanVar(value=False)
+        self.skip_python_deps_var = tk.BooleanVar(value=False)
 
         opts = ttk.Frame(self.body, style="Panel.TFrame")
         opts.pack(fill="x", pady=(20, 0))
@@ -41,10 +43,15 @@ class OptionsPage(BasePage):
             text="跳过 Crossref 网络探测测试",
             variable=self.skip_network_var,
         ).pack(anchor="w", pady=(6, 0))
+        ttk.Checkbutton(
+            opts,
+            text="跳过可选 Python 依赖安装（更快；仅下载 PDF 脚本需要）",
+            variable=self.skip_python_deps_var,
+        ).pack(anchor="w", pady=(6, 0))
 
         ttk.Label(
             self.body,
-            text="下一步将从安装包内置素材复制 Skills，并尝试离线安装 Python 依赖。",
+            text="下一步只为上一页勾选的 AI 助手安装 Skills；测试阶段也只验证这些助手。",
             style="Muted.TLabel",
         ).pack(anchor="w", pady=(18, 0))
 
@@ -52,23 +59,49 @@ class OptionsPage(BasePage):
         for child in self.dirs_frame.winfo_children():
             child.destroy()
         detection = self.app.detection
-        ttk.Label(self.dirs_frame, text="目标 Skills 目录：", style="Body.TLabel").pack(
+        selected = tuple(getattr(self.app, "selected_assistants", ()) or ())
+
+        ttk.Label(self.dirs_frame, text="已勾选的 AI 助手：", style="Body.TLabel").pack(
             anchor="w"
         )
+        if selected:
+            labels = "、".join(ASSISTANT_LABELS.get(k, k) for k in selected)
+            ttk.Label(self.dirs_frame, text=f"• {labels}", style="Muted.TLabel").pack(
+                anchor="w"
+            )
+        else:
+            ttk.Label(self.dirs_frame, text="• （尚未勾选）", style="Muted.TLabel").pack(
+                anchor="w"
+            )
+
+        ttk.Label(
+            self.dirs_frame, text="目标 Skills 目录：", style="Body.TLabel"
+        ).pack(anchor="w", pady=(10, 0))
         if detection is None:
             ttk.Label(self.dirs_frame, text="（尚未检测）", style="Muted.TLabel").pack(
                 anchor="w"
             )
             return
-        for path in detection.target_skill_dirs():
+        targets = detection.target_skill_dirs(selected)
+        if not targets:
+            ttk.Label(
+                self.dirs_frame,
+                text="（无匹配目录，请返回重新勾选）",
+                style="Muted.TLabel",
+            ).pack(anchor="w")
+            return
+        for path in targets:
             ttk.Label(self.dirs_frame, text=f"• {path}", style="Muted.TLabel").pack(
                 anchor="w"
             )
 
     def on_next(self) -> bool:
+        selected = tuple(getattr(self.app, "selected_assistants", ()) or ())
         self.app.options = InstallOptions(
             force=bool(self.force_var.get()),
             skip_network_test=bool(self.skip_network_var.get()),
+            skip_python_deps=bool(self.skip_python_deps_var.get()),
+            assistants=selected,
         )
         return True
 

@@ -35,7 +35,11 @@ if [[ ! -d "${APP_PATH}" ]]; then
 fi
 
 # Clear Finder/resource-fork xattrs that break ad-hoc codesign on some volumes.
+find "${APP_PATH}" -name '._*' -delete 2>/dev/null || true
 xattr -cr "${APP_PATH}" 2>/dev/null || true
+if command -v dot_clean >/dev/null 2>&1; then
+  dot_clean -m "${APP_PATH}" 2>/dev/null || true
+fi
 codesign --force --deep -s - "${APP_PATH}" 2>/dev/null || true
 
 STAGE="${BUILD}/dmg-stage"

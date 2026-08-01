@@ -7,8 +7,8 @@ from pathlib import Path
 import sys
 
 
-APP_NAME = "Literature Review Workflow Installer"
-APP_VERSION = "1.0.0"
+APP_NAME = "Literature Review Installer"
+APP_VERSION = "1.1.0"
 
 
 def project_root() -> Path:

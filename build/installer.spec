@@ -18,6 +18,7 @@ if not (bundled / "skills" / "academic-search" / "SKILL.md").is_file():
 datas = [
     (str(ROOT / "templates"), "templates"),
     (str(ROOT / "config"), "config"),
+    (str(ROOT / "assets"), "assets"),
     (str(ROOT / "README.md"), "."),
     (str(bundled), "bundled"),
 ]
@@ -39,7 +40,11 @@ hiddenimports = [
     "core.detect",
     "core.install_skills",
     "core.test_suite",
+    "core.prompts",
 ]
+
+ICON_ICNS = ROOT / "assets" / "app-icon.icns"
+ICON_ICO = ROOT / "assets" / "app-icon.ico"
 
 block_cipher = None
 
@@ -80,6 +85,7 @@ if sys.platform == "darwin":
         target_arch=None,
         codesign_identity=None,
         entitlements_file=None,
+        icon=str(ICON_ICNS) if ICON_ICNS.is_file() else None,
     )
     coll = COLLECT(
         exe,
@@ -94,12 +100,12 @@ if sys.platform == "darwin":
     app = BUNDLE(
         coll,
         name=f"{exe_name}.app",
-        icon=None,
+        icon=str(ICON_ICNS) if ICON_ICNS.is_file() else None,
         bundle_identifier="com.literaturereview.installer",
         info_plist={
             "CFBundleName": "Literature Review Installer",
             "CFBundleDisplayName": "Literature Review Installer",
-            "CFBundleShortVersionString": "1.0.0",
+            "CFBundleShortVersionString": "1.1.0",
             "NSHighResolutionCapable": True,
         },
     )
@@ -124,4 +130,5 @@ else:
         target_arch=None,
         codesign_identity=None,
         entitlements_file=None,
+        icon=str(ICON_ICO) if ICON_ICO.is_file() else None,
     )
