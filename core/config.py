@@ -28,9 +28,15 @@ def project_root() -> Path:
 def bundled_dir() -> Path:
     """Offline skills/wheels directory shipped inside the installer."""
     root = project_root()
+    exe = Path(sys.executable).resolve()
     candidates = [
         root / "bundled",
-        root / "Resources" / "bundled",  # macOS app Contents/Resources via some layouts
+        root / "Resources" / "bundled",
+        # macOS .app: MacOS/../Resources/bundled
+        exe.parent.parent / "Resources" / "bundled",
+        # PyInstaller onedir next to executable
+        exe.parent / "_internal" / "bundled",
+        exe.parent / "bundled",
     ]
     for path in candidates:
         if (path / "skills").is_dir():
