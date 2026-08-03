@@ -55,9 +55,31 @@ def bundled_skill_source(spec: SkillSpec) -> Path:
 
 
 def _copy_skill_tree(source: Path, target: Path) -> None:
+    """Replace skill files, preserving locked browser runtime profiles when possible.
+
+    On Windows, Edge/Chrome may lock files under ``runtime/edge_profile_*``, which
+    would make a full ``rmtree`` fail with WinError 32.
+    """
+    ignore = shutil.ignore_patterns(".git", ".github", "__pycache__", ".DS_Store", "runtime")
     if target.exists():
-        shutil.rmtree(target)
-    ignore = shutil.ignore_patterns(".git", ".github", "__pycache__", ".DS_Store")
+        for child in list(target.iterdir()):
+            if child.name == "runtime":
+                continue
+            if child.is_dir():
+                shutil.rmtree(child)
+            else:
+                child.unlink()
+        for item in source.iterdir():
+            if item.name in {".git", ".github", "__pycache__", ".DS_Store", "runtime"}:
+                continue
+            dest = target / item.name
+            if item.is_dir():
+                if dest.exists():
+                    shutil.rmtree(dest)
+                shutil.copytree(item, dest, ignore=ignore)
+            else:
+                shutil.copy2(item, dest)
+        return
     shutil.copytree(source, target, ignore=ignore)
 
 

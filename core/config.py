@@ -8,7 +8,7 @@ import sys
 
 
 APP_NAME = "Literature Review Installer"
-APP_VERSION = "1.2.2"
+APP_VERSION = "1.3.0"
 
 
 def project_root() -> Path:

@@ -49,15 +49,15 @@ WORKFLOW_STARTER_ZH = """$literature-review-workflow
 请开始文献综述工作流。
 我的研究主题是：{topic}
 
-请在对话里一步一步引导我完成检索、确认和下载整理。
-不要让我自己去查找或打开任何说明文件；直接告诉我下一步该做什么。"""
+请在对话里一步一步引导我完成：检索 → Excel 人工审阅与批准 → 合法下载 PDF → 整理进 Zotero → 最终质检。
+不要让我自己去查找或打开任何说明文件；直接告诉我下一步该做什么，并在每一步后等我确认再继续。"""
 
 WORKFLOW_STARTER_EN = """$literature-review-workflow
 Please start the literature-review workflow.
 My research topic is: {topic}
 
-Guide me step by step in this chat through search, review, and download.
-Do not ask me to find or open any documentation files; just tell me what to do next."""
+Guide me step by step in this chat through: search → Excel human review & approve → lawful PDF download → Zotero organise → final quality check.
+Do not ask me to find or open any documentation files; tell me what to do next, and wait for my confirmation before each next stage."""
 
 
 @dataclass(frozen=True)
